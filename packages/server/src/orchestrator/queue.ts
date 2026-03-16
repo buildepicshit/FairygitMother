@@ -99,6 +99,46 @@ export function requeue(db: FairygitMotherDb, bountyId: string) {
 		.run();
 }
 
+export function requeueStaleBounties(db: FairygitMotherDb, staleAfterMs: number): number {
+	const cutoff = new Date(Date.now() - staleAfterMs).toISOString();
+	const stale = db
+		.select()
+		.from(bounties)
+		.where(
+			and(
+				eq(bounties.status, "assigned"),
+				sql`${bounties.updatedAt} < ${cutoff}`,
+			),
+		)
+		.all();
+
+	for (const bounty of stale) {
+		requeue(db, bounty.id);
+	}
+
+	return stale.length;
+}
+
+export function requeueStaleDiffs(db: FairygitMotherDb, staleAfterMs: number): number {
+	const cutoff = new Date(Date.now() - staleAfterMs).toISOString();
+	const stale = db
+		.select()
+		.from(bounties)
+		.where(
+			and(
+				eq(bounties.status, "diff_submitted"),
+				sql`${bounties.updatedAt} < ${cutoff}`,
+			),
+		)
+		.all();
+
+	for (const bounty of stale) {
+		requeue(db, bounty.id);
+	}
+
+	return stale.length;
+}
+
 export function getQueueDepth(db: FairygitMotherDb): number {
 	const result = db
 		.select({ count: sql<number>`count(*)` })

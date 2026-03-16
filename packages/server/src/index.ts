@@ -6,6 +6,7 @@ import { createApp } from "./app.js";
 import { getDb } from "./db/client.js";
 import { runMigrations } from "./db/migrate.js";
 import { pruneStaleNodes } from "./orchestrator/registry.js";
+import { requeueStaleBounties, requeueStaleDiffs } from "./orchestrator/queue.js";
 import { scheduleTask, stopAll } from "./orchestrator/scheduler.js";
 
 const config = loadConfig();
@@ -27,6 +28,26 @@ scheduleTask(
 		if (pruned > 0) console.log(`[scheduler] Pruned ${pruned} stale nodes`);
 	},
 	60_000,
+);
+
+// Requeue bounties stuck in "assigned" for >10 minutes (agent went silent)
+scheduleTask(
+	"requeue-stale-bounties",
+	async () => {
+		const requeued = requeueStaleBounties(db, 10 * 60_000);
+		if (requeued > 0) console.log(`[scheduler] Requeued ${requeued} stale assigned bounties`);
+	},
+	120_000,
+);
+
+// Requeue bounties stuck in "diff_submitted" for >30 minutes (no reviewers available)
+scheduleTask(
+	"requeue-stale-diffs",
+	async () => {
+		const requeued = requeueStaleDiffs(db, 30 * 60_000);
+		if (requeued > 0) console.log(`[scheduler] Requeued ${requeued} stale diff_submitted bounties`);
+	},
+	300_000,
 );
 
 // Start server
