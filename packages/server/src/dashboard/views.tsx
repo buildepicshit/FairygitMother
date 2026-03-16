@@ -877,9 +877,12 @@ footer {
 
 .stats-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+	grid-template-columns: repeat(4, 1fr);
 	gap: 1rem;
 	margin: 2rem 0;
+}
+@media (max-width: 700px) {
+	.stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
 .stat-card {
 	background: var(--surface);
