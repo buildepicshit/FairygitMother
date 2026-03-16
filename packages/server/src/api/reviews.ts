@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { logAudit } from "../audit.js";
 import { evaluateConsensus, recordConsensus } from "../consensus/aggregator.js";
 import type { FairygitMotherDb } from "../db/client.js";
-import { nodes, submissions, votes } from "../db/schema.js";
+import { bounties, nodes, submissions, votes } from "../db/schema.js";
 
 export function createReviewRoutes(db: FairygitMotherDb) {
 	const app = new Hono();
@@ -30,6 +30,15 @@ export function createReviewRoutes(db: FairygitMotherDb) {
 		// Can't review your own submission
 		if (submission.nodeId === reviewerNodeId) {
 			return c.json({ error: "Cannot review your own submission" }, 403);
+		}
+
+		// Transition bounty to in_review on first vote
+		const bounty = db.select().from(bounties).where(eq(bounties.id, submission.bountyId)).get();
+		if (bounty?.status === "diff_submitted") {
+			db.update(bounties)
+				.set({ status: "in_review", updatedAt: new Date().toISOString() })
+				.where(eq(bounties.id, submission.bountyId))
+				.run();
 		}
 
 		const voteId = generateId("vote");

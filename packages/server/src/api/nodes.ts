@@ -1,8 +1,77 @@
-import { HeartbeatRequestSchema, RegisterNodeRequestSchema } from "@fairygitmother/core";
+import {
+	CURRENT_SKILL_VERSION,
+	HeartbeatRequestSchema,
+	RegisterNodeRequestSchema,
+	type SkillUpdateInfo,
+} from "@fairygitmother/core";
+import { and, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import type { FairygitMotherDb } from "../db/client.js";
+import { bounties, submissions, votes } from "../db/schema.js";
 import { dequeueForNode, markAssigned } from "../orchestrator/queue.js";
 import { heartbeat, registerNode, removeNode } from "../orchestrator/registry.js";
+
+function buildSkillUpdate(clientVersion: string | undefined): SkillUpdateInfo | null {
+	if (clientVersion === CURRENT_SKILL_VERSION) return null;
+	return {
+		updateAvailable: true,
+		currentVersion: clientVersion ?? "unknown",
+		latestVersion: CURRENT_SKILL_VERSION,
+		updateInstructions: {
+			npm: "npm install @fairygitmother/skill-openclaw@latest",
+			pnpm: "pnpm add @fairygitmother/skill-openclaw@latest",
+			openclaw: "openclaw install fairygitmother@latest",
+			manual:
+				"https://github.com/buildepicshit/FairygitMother/blob/main/packages/skill-openclaw/SKILL.md",
+		},
+		changelog: "https://github.com/buildepicshit/FairygitMother/releases",
+	};
+}
+
+function findPendingReview(db: FairygitMotherDb, nodeId: string) {
+	// Find submissions awaiting review where this node hasn't voted and isn't the solver
+	const pendingSubmissions = db
+		.select()
+		.from(submissions)
+		.innerJoin(bounties, eq(submissions.bountyId, bounties.id))
+		.where(inArray(bounties.status, ["diff_submitted", "in_review"]))
+		.all();
+
+	for (const row of pendingSubmissions) {
+		// Skip if this node is the solver
+		if (row.submissions.nodeId === nodeId) continue;
+
+		// Skip if this node already voted
+		const existingVote = db
+			.select()
+			.from(votes)
+			.where(and(eq(votes.submissionId, row.submissions.id), eq(votes.reviewerNodeId, nodeId)))
+			.get();
+		if (existingVote) continue;
+
+		// Transition to in_review if still diff_submitted
+		if (row.bounties.status === "diff_submitted") {
+			db.update(bounties)
+				.set({ status: "in_review", updatedAt: new Date().toISOString() })
+				.where(eq(bounties.id, row.bounties.id))
+				.run();
+		}
+
+		return {
+			submissionId: row.submissions.id,
+			bountyId: row.bounties.id,
+			owner: row.bounties.owner,
+			repo: row.bounties.repo,
+			issueNumber: row.bounties.issueNumber,
+			issueTitle: row.bounties.issueTitle,
+			issueBody: row.bounties.issueBody,
+			diff: row.submissions.diff,
+			explanation: row.submissions.explanation,
+		};
+	}
+
+	return null;
+}
 
 export function createNodeRoutes(db: FairygitMotherDb) {
 	const app = new Hono();
@@ -37,27 +106,36 @@ export function createNodeRoutes(db: FairygitMotherDb) {
 
 		heartbeat(db, nodeId, parsed.data.status, parsed.data.tokensUsedSinceLastHeartbeat);
 
-		// Check for pending work when node is idle
 		let pendingBounty = null;
+		let pendingReview = null;
+
 		if (parsed.data.status === "idle") {
-			const bounty = dequeueForNode(db, nodeId);
-			if (bounty) {
-				markAssigned(db, bounty.id, nodeId);
-				pendingBounty = {
-					...bounty,
-					repoUrl: `https://github.com/${bounty.owner}/${bounty.repo}`,
-					status: "assigned" as const,
-					assignedNodeId: nodeId,
-					retryCount: 0,
-					createdAt: new Date().toISOString(),
-				};
+			// Reviews take priority over new bounties
+			pendingReview = findPendingReview(db, nodeId);
+
+			if (!pendingReview) {
+				const bounty = dequeueForNode(db, nodeId);
+				if (bounty) {
+					markAssigned(db, bounty.id, nodeId);
+					pendingBounty = {
+						...bounty,
+						repoUrl: `https://github.com/${bounty.owner}/${bounty.repo}`,
+						status: "assigned" as const,
+						assignedNodeId: nodeId,
+						retryCount: 0,
+						createdAt: new Date().toISOString(),
+					};
+				}
 			}
 		}
+
+		const skillUpdate = buildSkillUpdate(parsed.data.skillVersion);
 
 		return c.json({
 			acknowledged: true,
 			pendingBounty,
-			pendingReview: null, // TODO: check for pending reviews
+			pendingReview,
+			skillUpdate,
 		});
 	});
 

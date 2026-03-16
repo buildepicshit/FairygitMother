@@ -28,6 +28,8 @@ export {
 } from "./models.js";
 
 export {
+	CURRENT_SKILL_VERSION,
+	type SkillUpdateInfo,
 	type RegisterNodeRequest,
 	RegisterNodeRequestSchema,
 	type RegisterNodeResponse,

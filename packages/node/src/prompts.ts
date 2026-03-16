@@ -48,15 +48,39 @@ ${explanation}
 ${diff}
 \`\`\`
 
-## Review Criteria
+## Review Checklist
 
-Evaluate the fix on these dimensions:
+Go through each item in order. If ANY item fails, reject.
 
-1. **Correctness** — Does this actually fix the issue described?
-2. **Minimality** — Does it change only what's necessary? No unnecessary refactoring?
-3. **Regressions** — Could this break existing functionality?
-4. **Security** — Does it introduce any security vulnerabilities?
-5. **Style** — Does it match the existing code style?
+### 1. Correctness
+- Does this fix address the root cause described in the issue?
+- Trace the diff through the code — does the logic hold?
+- Watch for fixes that mask symptoms without fixing the cause.
+
+### 2. Security
+REJECT immediately if the diff contains any of:
+- \`eval()\`, \`exec()\`, \`child_process\`, \`os.system()\`, \`subprocess\`, \`Function()\`
+- API keys, tokens, passwords, secrets, .env values, private keys
+- Modifications to .github/, CI configs, Dockerfiles, or Makefiles (unless the issue requires it)
+- New dependencies not mentioned in the issue
+
+### 3. Minimality
+- Only changes necessary to fix the issue — nothing more.
+- REJECT if it includes: surrounding refactors, new comments on unchanged code,
+  whitespace-only changes, import reordering, or unrelated fixes.
+
+### 4. Regressions
+- Is the changed code called from other places?
+- Did function signatures, return types, or exports change?
+- Was error handling removed or altered?
+
+### 5. Style
+- Same indentation, naming convention, and patterns as surrounding code.
+- Minor style issues alone are NOT grounds for rejection.
+
+## Confidence Calibration
+- 0.9-1.0 = certain. 0.7-0.9 = high confidence.
+- Below 0.7 = uncertain — default to reject.
 
 ## Response Format
 
@@ -70,8 +94,8 @@ Respond with a JSON object:
 }
 \`\`\`
 
-Be strict. Only approve fixes that clearly solve the issue without introducing problems.
-If you're unsure, reject. It's better to reject a good fix than approve a bad one.`;
+Be strict. Do not re-solve the issue or suggest alternatives — just evaluate what's in front of you.
+If unsure, reject. It's better to reject a good fix than approve a bad one.`;
 }
 
 // ── API-only mode prompts ──────────────────────────────────────
@@ -159,13 +183,39 @@ ${explanation}
 ${diff}
 \`\`\`
 
-## Review Criteria
+## Review Checklist
 
-1. **Correctness** — Does this actually fix the issue?
-2. **Minimality** — Only necessary changes?
-3. **Regressions** — Could this break existing functionality?
-4. **Security** — Any vulnerabilities introduced?
-5. **Style** — Matches existing code style?
+Go through each item in order. If ANY item fails, reject.
+
+### 1. Correctness
+- Does this fix address the root cause described in the issue?
+- Trace the diff against the original source files — does the logic hold?
+- Watch for fixes that mask symptoms without fixing the cause.
+
+### 2. Security
+REJECT immediately if the diff contains any of:
+- \`eval()\`, \`exec()\`, \`child_process\`, \`os.system()\`, \`subprocess\`, \`Function()\`
+- API keys, tokens, passwords, secrets, .env values, private keys
+- Modifications to .github/, CI configs, Dockerfiles, or Makefiles (unless the issue requires it)
+- New dependencies not mentioned in the issue
+
+### 3. Minimality
+- Only changes necessary to fix the issue — nothing more.
+- REJECT if it includes: surrounding refactors, new comments on unchanged code,
+  whitespace-only changes, import reordering, or unrelated fixes.
+
+### 4. Regressions
+- Is the changed code called from other places? Check the original source files.
+- Did function signatures, return types, or exports change?
+- Was error handling removed or altered?
+
+### 5. Style
+- Same indentation, naming convention, and patterns as the original source files.
+- Minor style issues alone are NOT grounds for rejection.
+
+## Confidence Calibration
+- 0.9-1.0 = certain. 0.7-0.9 = high confidence.
+- Below 0.7 = uncertain — default to reject.
 
 ## Response Format
 
@@ -178,5 +228,6 @@ ${diff}
 }
 \`\`\`
 
-Be strict. Reject if unsure.`;
+Be strict. Do not re-solve the issue or suggest alternatives — just evaluate what's in front of you.
+If unsure, reject. It's better to reject a good fix than approve a bad one.`;
 }

@@ -146,8 +146,8 @@ describe("bounties API", () => {
 			// Claim (authenticated)
 			const claimRes = await app.request("/api/v1/bounties/claim", {
 				method: "POST",
-				headers: authHeaders(apiKey),
-				body: JSON.stringify({}),
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ apiKey }),
 			});
 
 			const body = await claimRes.json();
@@ -160,8 +160,8 @@ describe("bounties API", () => {
 
 			const claimRes = await app.request("/api/v1/bounties/claim", {
 				method: "POST",
-				headers: authHeaders(apiKey),
-				body: JSON.stringify({}),
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ apiKey }),
 			});
 
 			const body = await claimRes.json();

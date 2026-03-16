@@ -84,8 +84,8 @@ async function claimBounty(
 ): Promise<{ bounty: Record<string, unknown> | null }> {
 	const res = await app.request("/api/v1/bounties/claim", {
 		method: "POST",
-		headers: authHeaders(apiKey),
-		body: JSON.stringify({}),
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ apiKey }),
 	});
 	expect(res.status).toBe(200);
 	return res.json() as Promise<{ bounty: Record<string, unknown> | null }>;
@@ -217,6 +217,14 @@ describe("E2E: FairygitMother bounty lifecycle", () => {
 			// After 1 approval, not yet consensus (need 2)
 			expect(vote1Body.consensusStatus).toBe("pending");
 
+			// Verify bounty transitioned to in_review after first vote
+			const afterFirstVote = db
+				.select()
+				.from(schema.bounties)
+				.where(eq(schema.bounties.id, bountyId))
+				.get();
+			expect(afterFirstVote?.status).toBe("in_review");
+
 			// Reviewer 2 votes approve -- this should trigger consensus
 			const vote2Res = await submitVote(app, submissionId, reviewer2.apiKey, "approve");
 			expect(vote2Res.status).toBe(200);
@@ -306,6 +314,14 @@ describe("E2E: FairygitMother bounty lifecycle", () => {
 			const vote1Res = await submitVote(app, submissionId, reviewer1.apiKey, "reject");
 			const vote1Body = (await vote1Res.json()) as { consensusStatus: string };
 			expect(vote1Body.consensusStatus).toBe("pending"); // 1 reject not enough
+
+			// Verify bounty transitioned to in_review after first vote
+			const afterFirstVote = db
+				.select()
+				.from(schema.bounties)
+				.where(eq(schema.bounties.id, bountyId))
+				.get();
+			expect(afterFirstVote?.status).toBe("in_review");
 
 			const vote2Res = await submitVote(app, submissionId, reviewer2.apiKey, "reject");
 			const vote2Body = (await vote2Res.json()) as { consensusStatus: string };

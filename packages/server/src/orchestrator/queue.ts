@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { FairygitMotherDb } from "../db/client.js";
 import { bounties, nodes, repos } from "../db/schema.js";
 
@@ -119,7 +119,12 @@ export function requeueStaleDiffs(db: FairygitMotherDb, staleAfterMs: number): n
 	const stale = db
 		.select()
 		.from(bounties)
-		.where(and(eq(bounties.status, "diff_submitted"), sql`${bounties.updatedAt} < ${cutoff}`))
+		.where(
+			and(
+				inArray(bounties.status, ["diff_submitted", "in_review"]),
+				sql`${bounties.updatedAt} < ${cutoff}`,
+			),
+		)
 		.all();
 
 	for (const bounty of stale) {

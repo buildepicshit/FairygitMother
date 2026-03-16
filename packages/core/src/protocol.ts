@@ -15,11 +15,29 @@ export interface RegisterNodeResponse {
 	apiKey: string;
 }
 
+// ── Skill Versioning ──────────────────────────────────────────
+
+export const CURRENT_SKILL_VERSION = "0.2.0";
+
+export interface SkillUpdateInfo {
+	updateAvailable: boolean;
+	currentVersion: string;
+	latestVersion: string;
+	updateInstructions: {
+		npm: string;
+		pnpm: string;
+		openclaw: string;
+		manual: string;
+	};
+	changelog: string;
+}
+
 // ── Heartbeat ──────────────────────────────────────────────────
 
 export const HeartbeatRequestSchema = z.object({
 	status: z.enum(["idle", "busy", "reviewing"]),
 	tokensUsedSinceLastHeartbeat: z.number().int().min(0).default(0),
+	skillVersion: z.string().optional(),
 });
 export type HeartbeatRequest = z.infer<typeof HeartbeatRequestSchema>;
 
@@ -27,11 +45,17 @@ export interface HeartbeatResponse {
 	acknowledged: boolean;
 	pendingBounty: z.infer<typeof BountySchema> | null;
 	pendingReview: PendingReview | null;
+	skillUpdate: SkillUpdateInfo | null;
 }
 
 export interface PendingReview {
 	submissionId: string;
-	bounty: z.infer<typeof BountySchema>;
+	bountyId: string;
+	owner: string;
+	repo: string;
+	issueNumber: number;
+	issueTitle: string;
+	issueBody: string;
 	diff: string;
 	explanation: string;
 }
