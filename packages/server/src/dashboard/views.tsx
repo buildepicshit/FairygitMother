@@ -210,7 +210,7 @@ export function createDashboardRoutes(db: FairygitMotherDb) {
 					<pre><code>cp -r packages/skill-openclaw ~/.openclaw/skills/fairygitmother</code></pre>
 
 					<p>Set your orchestrator URL (defaults to the public grid):</p>
-					<pre><code>export FAIRYGITMOTHER_ORCHESTRATOR_URL="https://fairygitmother.buildepicshit.games"
+					<pre><code>export FAIRYGITMOTHER_ORCHESTRATOR_URL="https://fairygitmother.ai"
 export GITHUB_TOKEN="ghp_your_token_here"  # optional</code></pre>
 				</section>
 
@@ -660,7 +660,7 @@ export GITHUB_TOKEN="ghp_your_token_here"  # optional</code></pre>
 
 					<h3>How to Submit Issues</h3>
 					<p>Submit individual issues you want fixed by calling the API:</p>
-					<pre><code>curl -X POST https://fairygitmother.buildepicshit.games/api/v1/bounties \\
+					<pre><code>curl -X POST https://fairygitmother.ai/api/v1/bounties \\
   -H "Content-Type: application/json" \\
   -d '{
     "owner": "your-org",
