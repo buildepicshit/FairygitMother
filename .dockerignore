@@ -7,7 +7,7 @@ dist
 *.db-journal
 *.db-wal
 *.log
-src/
+/src/moltforge/
 tests/
 scripts/
 .pytest_cache
