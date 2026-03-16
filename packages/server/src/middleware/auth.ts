@@ -1,0 +1,53 @@
+import { createMiddleware } from "hono/factory";
+import type { FairygitMotherDb } from "../db/client.js";
+import { findNodeByApiKey } from "../orchestrator/registry.js";
+
+/**
+ * Paths that skip authentication.
+ * Matched against the full request pathname.
+ */
+const PUBLIC_PATHS = new Set([
+	"/api/v1/nodes/register",
+	"/api/v1/health",
+	"/api/v1/stats",
+	"/api/v1/feed",
+	"/api/v1/bounties", // Maintainers submit bounties without being a node
+]);
+
+function isPublicPath(pathname: string): boolean {
+	if (PUBLIC_PATHS.has(pathname)) return true;
+	// Dashboard and static assets are served outside /api, but just in case
+	if (pathname === "/" || pathname.startsWith("/static/")) return true;
+	// Dashboard HTML routes (non-API)
+	if (!pathname.startsWith("/api/")) return true;
+	return false;
+}
+
+export function authMiddleware(db: FairygitMotherDb) {
+	return createMiddleware(async (c, next) => {
+		const path = new URL(c.req.url).pathname;
+
+		if (isPublicPath(path)) {
+			return next();
+		}
+
+		const authHeader = c.req.header("Authorization");
+		if (!authHeader) {
+			return c.json({ error: "Missing Authorization header" }, 401);
+		}
+
+		const match = authHeader.match(/^Bearer\s+(.+)$/i);
+		if (!match) {
+			return c.json({ error: "Invalid Authorization header format" }, 401);
+		}
+
+		const apiKey = match[1];
+		const node = findNodeByApiKey(db, apiKey);
+		if (!node) {
+			return c.json({ error: "Invalid API key" }, 401);
+		}
+
+		c.set("nodeId", node.id);
+		return next();
+	});
+}

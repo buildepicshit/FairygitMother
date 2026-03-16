@@ -1,0 +1,17 @@
+services:
+  server:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - fairygitmother-data:/data
+    environment:
+      - FAIRYGITMOTHER_DB_PATH=/data/fairygitmother.db
+      - FAIRYGITMOTHER_HOST=0.0.0.0
+      - FAIRYGITMOTHER_PORT=3000
+      # Set your GitHub token for trawling opted-in repos
+      # - GITHUB_TOKEN=${GITHUB_TOKEN}
+    restart: unless-stopped
+
+volumes:
+  fairygitmother-data:

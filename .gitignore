@@ -1,0 +1,66 @@
+# Build outputs
+bin/
+obj/
+build/
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment & secrets
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+
+# Logs & temp
+*.log
+build_output.txt
+build_errors_only.txt
+tmp/
+temp/
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+
+# Python POC (legacy)
+/src/moltforge/
+tests/test_*.py
+tests/__init__.py
+tests/*/___init__.py
+pyproject.toml
+.pytest_cache/
+
+# Deploy artifacts
+deploy.tar
+deploy.zip
+
+# Agentic / AI tool files
+.claude/
+.agent/
+CLAUDE.md

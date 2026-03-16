@@ -1,0 +1,45 @@
+type Task = () => Promise<void>;
+
+interface ScheduledTask {
+	name: string;
+	task: Task;
+	intervalMs: number;
+	timer: ReturnType<typeof setInterval> | null;
+}
+
+const tasks: Map<string, ScheduledTask> = new Map();
+
+export function scheduleTask(name: string, task: Task, intervalMs: number) {
+	// Clear existing task with same name
+	stopTask(name);
+
+	const scheduled: ScheduledTask = { name, task, intervalMs, timer: null };
+	scheduled.timer = setInterval(async () => {
+		try {
+			await task();
+		} catch (err) {
+			console.error(`[scheduler] Task "${name}" failed:`, err);
+		}
+	}, intervalMs);
+
+	tasks.set(name, scheduled);
+}
+
+export function stopTask(name: string) {
+	const existing = tasks.get(name);
+	if (existing?.timer) {
+		clearInterval(existing.timer);
+		existing.timer = null;
+	}
+	tasks.delete(name);
+}
+
+export function stopAll() {
+	for (const [name] of tasks) {
+		stopTask(name);
+	}
+}
+
+export function getScheduledTasks(): string[] {
+	return Array.from(tasks.keys());
+}
