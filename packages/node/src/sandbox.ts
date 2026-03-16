@@ -47,14 +47,16 @@ export function resetDockerCheck() {
 // ── Container image ────────────────────────────────────────────
 
 const SANDBOX_IMAGE = "fairygitmother-sandbox";
+const SANDBOX_IMAGE_VERSION = "2"; // Bump to force rebuild
 
 export async function ensureSandboxImage(): Promise<void> {
-	// Check if image exists
+	const tag = `${SANDBOX_IMAGE}:v${SANDBOX_IMAGE_VERSION}`;
+	// Check if this version of the image exists
 	try {
-		await exec("docker", ["image", "inspect", SANDBOX_IMAGE], { timeout: 10_000 });
+		await exec("docker", ["image", "inspect", tag], { timeout: 10_000 });
 		return;
 	} catch {
-		// Image doesn't exist, build it
+		// Image doesn't exist or wrong version, build it
 	}
 
 	const dockerfile = `
@@ -71,7 +73,7 @@ WORKDIR /workspace
 	await writeFile(join(buildDir, "Dockerfile"), dockerfile);
 
 	try {
-		await exec("docker", ["build", "-t", SANDBOX_IMAGE, buildDir], { timeout: 120_000 });
+		await exec("docker", ["build", "-t", tag, buildDir], { timeout: 120_000 });
 	} finally {
 		await rm(buildDir, { recursive: true, force: true });
 	}
@@ -126,7 +128,7 @@ export async function safeClone(
 			"--tmpfs=/tmp:size=64m",
 			"-v",
 			`${hostDir}:/output:rw`,
-			SANDBOX_IMAGE,
+			`${SANDBOX_IMAGE}:v${SANDBOX_IMAGE_VERSION}`,
 			"sleep",
 			"3600",
 		],
