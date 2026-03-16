@@ -1,26 +1,29 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { eq } from "drizzle-orm";
-import * as schema from "@fairygitmother/server/db/schema.js";
-import {
-	registerNode,
-	heartbeat,
-	findNodeByApiKey,
-	getNode,
-	removeNode,
-	matchBountyToNode,
-	pruneStaleNodes,
-	getActiveNodeCount,
-} from "@fairygitmother/server/orchestrator/registry.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import * as schema from "@fairygitmother/server/db/schema.js";
+import {
+	findNodeByApiKey,
+	getActiveNodeCount,
+	getNode,
+	heartbeat,
+	matchBountyToNode,
+	pruneStaleNodes,
+	registerNode,
+	removeNode,
+} from "@fairygitmother/server/orchestrator/registry.js";
+import Database from "better-sqlite3";
+import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import { beforeEach, describe, expect, it } from "vitest";
 
 function createTestDb() {
 	const sqlite = new Database(":memory:");
 	sqlite.pragma("journal_mode = WAL");
 	sqlite.pragma("foreign_keys = ON");
-	const migration = readFileSync(resolve(import.meta.dirname, "../../../migrations/0001_initial.sql"), "utf-8");
+	const migration = readFileSync(
+		resolve(import.meta.dirname, "../../../migrations/0001_initial.sql"),
+		"utf-8",
+	);
 	sqlite.exec(migration);
 	return drizzle(sqlite, { schema });
 }
@@ -34,7 +37,12 @@ describe("registry", () => {
 
 	describe("registerNode", () => {
 		it("creates a node with API key", () => {
-			const result = registerNode(db, "TestNode", { languages: ["TypeScript"], tools: [] }, "openclaw");
+			const result = registerNode(
+				db,
+				"TestNode",
+				{ languages: ["TypeScript"], tools: [] },
+				"openclaw",
+			);
 			expect(result.id).toMatch(/^node_/);
 			expect(result.apiKey).toMatch(/^mf_/);
 
@@ -94,7 +102,10 @@ describe("registry", () => {
 			const low = registerNode(db, "LowRep", { languages: [], tools: [] }, "test");
 			const high = registerNode(db, "HighRep", { languages: [], tools: [] }, "test");
 			// Manually set reputation
-			db.update(schema.nodes).set({ reputationScore: 80 }).where(eq(schema.nodes.id, high.id)).run();
+			db.update(schema.nodes)
+				.set({ reputationScore: 80 })
+				.where(eq(schema.nodes.id, high.id))
+				.run();
 			db.update(schema.nodes).set({ reputationScore: 20 }).where(eq(schema.nodes.id, low.id)).run();
 
 			const match = matchBountyToNode(db, null);
@@ -107,7 +118,10 @@ describe("registry", () => {
 			const result = registerNode(db, null, { languages: [], tools: [] }, "test");
 			// Set heartbeat to 5 minutes ago
 			const oldTime = new Date(Date.now() - 300_000).toISOString();
-			db.update(schema.nodes).set({ lastHeartbeat: oldTime }).where(eq(schema.nodes.id, result.id)).run();
+			db.update(schema.nodes)
+				.set({ lastHeartbeat: oldTime })
+				.where(eq(schema.nodes.id, result.id))
+				.run();
 
 			const pruned = pruneStaleNodes(db, 120_000); // 2 min timeout
 			expect(pruned).toBe(1);

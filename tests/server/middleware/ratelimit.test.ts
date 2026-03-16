@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { Hono } from "hono";
 import {
-	createRateLimiter,
 	type RateLimitMiddleware,
+	createRateLimiter,
 } from "@fairygitmother/server/middleware/ratelimit.js";
+import { Hono } from "hono";
+import { describe, expect, it } from "vitest";
 
 function createTestApp(opts: { windowMs?: number; maxRequests?: number } = {}) {
 	const app = new Hono();
@@ -21,14 +21,10 @@ function createTestApp(opts: { windowMs?: number; maxRequests?: number } = {}) {
 	return { app, limiter: limiter as RateLimitMiddleware };
 }
 
-function makeRequest(
-	app: Hono,
-	path: string,
-	opts: { apiKey?: string; method?: string } = {},
-) {
+function makeRequest(app: Hono, path: string, opts: { apiKey?: string; method?: string } = {}) {
 	const headers: Record<string, string> = {};
 	if (opts.apiKey) {
-		headers["Authorization"] = `Bearer ${opts.apiKey}`;
+		headers.Authorization = `Bearer ${opts.apiKey}`;
 	}
 	return app.request(path, { method: opts.method ?? "GET", headers });
 }

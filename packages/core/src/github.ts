@@ -38,11 +38,7 @@ export class GitHubClient {
 		return data as unknown as GitHubIssue;
 	}
 
-	async fetchGoodFirstIssues(
-		owner: string,
-		repo: string,
-		limit = 10,
-	): Promise<GitHubIssue[]> {
+	async fetchGoodFirstIssues(owner: string, repo: string, limit = 10): Promise<GitHubIssue[]> {
 		const { data } = await this.octokit.rest.issues.listForRepo({
 			owner,
 			repo,
@@ -105,10 +101,7 @@ export class GitHubClient {
 		return { number: data.number, html_url: data.html_url };
 	}
 
-	async checkFairygitMotherConfig(
-		owner: string,
-		repo: string,
-	): Promise<RepoConfig | null> {
+	async checkFairygitMotherConfig(owner: string, repo: string): Promise<RepoConfig | null> {
 		try {
 			const { data } = await this.octokit.rest.repos.getContent({
 				owner,

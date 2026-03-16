@@ -1,15 +1,15 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import type { FairygitMotherDb } from "./db/client.js";
-import { createNodeRoutes } from "./api/nodes.js";
 import { createBountyRoutes } from "./api/bounties.js";
+import { createNodeRoutes } from "./api/nodes.js";
 import { createReviewRoutes } from "./api/reviews.js";
 import { createStatsRoutes } from "./api/stats.js";
+import { feedRouteHandler } from "./api/websocket.js";
 import { createDashboardRoutes } from "./dashboard/views.js";
+import type { FairygitMotherDb } from "./db/client.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { createRateLimiter } from "./middleware/ratelimit.js";
-import { feedRouteHandler } from "./api/websocket.js";
 
 export function createApp(db: FairygitMotherDb) {
 	const app = new Hono();

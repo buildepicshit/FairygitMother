@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { isDockerAvailable, resetDockerCheck } from "@fairygitmother/node";
+import { beforeEach, describe, expect, it } from "vitest";
 
 describe("sandbox", () => {
 	describe("isDockerAvailable", () => {

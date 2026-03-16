@@ -1,4 +1,4 @@
-import { generateId, type AuditEvent } from "@fairygitmother/core";
+import { type AuditEvent, generateId } from "@fairygitmother/core";
 import type { FairygitMotherDb } from "./db/client.js";
 import { auditLog } from "./db/schema.js";
 

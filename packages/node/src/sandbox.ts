@@ -1,8 +1,8 @@
-import { execFile, spawn } from "node:child_process";
-import { mkdir, rm, writeFile, readFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { randomBytes } from "node:crypto";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { randomBytes } from "node:crypto";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -116,15 +116,18 @@ export async function safeClone(
 		[
 			"run",
 			"-d",
-			"--name", `fgm_${randomBytes(4).toString("hex")}`,
+			"--name",
+			`fgm_${randomBytes(4).toString("hex")}`,
 			`--memory=${containerMemoryMb}m`,
 			`--cpus=${containerCpus}`,
 			"--security-opt=no-new-privileges",
 			"--pids-limit=100",
 			"--tmpfs=/tmp:size=64m",
-			"-v", `${hostDir}:/output:rw`,
+			"-v",
+			`${hostDir}:/output:rw`,
 			SANDBOX_IMAGE,
-			"sleep", "3600",
+			"sleep",
+			"3600",
 		],
 		{ timeout: 30_000 },
 	);
@@ -132,25 +135,37 @@ export async function safeClone(
 
 	try {
 		// Phase 1: Clone with network access
-		await containerExec(cid, [
-			"git", "clone",
-			"--depth", "1",
-			"--single-branch",
-			"--config", "core.hooksPath=/dev/null",
-			"--config", "core.symlinks=false",
-			"--config", "core.autocrlf=false",
-			"--config", "transfer.fsckObjects=true",
-			repoUrl,
-			"/workspace/repo",
-		], cloneTimeoutMs);
+		await containerExec(
+			cid,
+			[
+				"git",
+				"clone",
+				"--depth",
+				"1",
+				"--single-branch",
+				"--config",
+				"core.hooksPath=/dev/null",
+				"--config",
+				"core.symlinks=false",
+				"--config",
+				"core.autocrlf=false",
+				"--config",
+				"transfer.fsckObjects=true",
+				repoUrl,
+				"/workspace/repo",
+			],
+			cloneTimeoutMs,
+		);
 
 		// Phase 2: Disconnect network — from this point, no external communication
 		await exec("docker", ["network", "disconnect", "bridge", cid], { timeout: 10_000 });
 
 		// Phase 3: Verify repo size
-		const sizeResult = await containerExec(cid, [
-			"sh", "-c", "du -sm /workspace/repo | cut -f1",
-		], 30_000);
+		const sizeResult = await containerExec(
+			cid,
+			["sh", "-c", "du -sm /workspace/repo | cut -f1"],
+			30_000,
+		);
 		const sizeMb = Number.parseInt(sizeResult.stdout.trim(), 10);
 		if (sizeMb > maxRepoSizeMb) {
 			throw new Error(`Repo too large: ${sizeMb}MB (max ${maxRepoSizeMb}MB)`);
@@ -178,23 +193,29 @@ export async function safeClone(
 // ── Git operations (inside container) ──────────────────────────
 
 export async function generateDiff(result: SafeCloneResult): Promise<string> {
-	const r = await containerExec(result.containerId, [
-		"git", "-C", "/workspace/repo", "diff",
-	], 30_000);
+	const r = await containerExec(
+		result.containerId,
+		["git", "-C", "/workspace/repo", "diff"],
+		30_000,
+	);
 	return r.stdout;
 }
 
 export async function getStagedDiff(result: SafeCloneResult): Promise<string> {
-	const r = await containerExec(result.containerId, [
-		"git", "-C", "/workspace/repo", "diff", "--cached",
-	], 30_000);
+	const r = await containerExec(
+		result.containerId,
+		["git", "-C", "/workspace/repo", "diff", "--cached"],
+		30_000,
+	);
 	return r.stdout;
 }
 
 export async function getChangedFiles(result: SafeCloneResult): Promise<string[]> {
-	const r = await containerExec(result.containerId, [
-		"git", "-C", "/workspace/repo", "diff", "--name-only",
-	], 30_000);
+	const r = await containerExec(
+		result.containerId,
+		["git", "-C", "/workspace/repo", "diff", "--name-only"],
+		30_000,
+	);
 	return r.stdout
 		.trim()
 		.split("\n")
@@ -202,27 +223,31 @@ export async function getChangedFiles(result: SafeCloneResult): Promise<string[]
 }
 
 export async function createBranch(result: SafeCloneResult, branchName: string): Promise<void> {
-	await containerExec(result.containerId, [
-		"git", "-C", "/workspace/repo", "checkout", "-b", branchName,
-	], 10_000);
+	await containerExec(
+		result.containerId,
+		["git", "-C", "/workspace/repo", "checkout", "-b", branchName],
+		10_000,
+	);
 }
 
 export async function commitAll(result: SafeCloneResult, message: string): Promise<void> {
-	await containerExec(result.containerId, [
-		"git", "-C", "/workspace/repo", "add", "-A",
-	], 10_000);
-	await containerExec(result.containerId, [
-		"git", "-C", "/workspace/repo", "commit", "-m", message,
-	], 10_000);
+	await containerExec(result.containerId, ["git", "-C", "/workspace/repo", "add", "-A"], 10_000);
+	await containerExec(
+		result.containerId,
+		["git", "-C", "/workspace/repo", "commit", "-m", message],
+		10_000,
+	);
 }
 
 export async function readContainerFile(
 	result: SafeCloneResult,
 	relativePath: string,
 ): Promise<string> {
-	const r = await containerExec(result.containerId, [
-		"cat", `/workspace/repo/${relativePath}`,
-	], 10_000);
+	const r = await containerExec(
+		result.containerId,
+		["cat", `/workspace/repo/${relativePath}`],
+		10_000,
+	);
 	return r.stdout;
 }
 
@@ -230,12 +255,21 @@ export async function listContainerFiles(
 	result: SafeCloneResult,
 	relativePath = "",
 ): Promise<string[]> {
-	const r = await containerExec(result.containerId, [
-		"find", `/workspace/repo/${relativePath}`,
-		"-type", "f",
-		"-not", "-path", "*/\\.git/*",
-		"-maxdepth", "3",
-	], 10_000);
+	const r = await containerExec(
+		result.containerId,
+		[
+			"find",
+			`/workspace/repo/${relativePath}`,
+			"-type",
+			"f",
+			"-not",
+			"-path",
+			"*/\\.git/*",
+			"-maxdepth",
+			"3",
+		],
+		10_000,
+	);
 	return r.stdout
 		.trim()
 		.split("\n")
@@ -245,9 +279,11 @@ export async function listContainerFiles(
 
 export async function exportDiff(result: SafeCloneResult): Promise<string> {
 	// Generate diff inside container, write to shared /output volume
-	await containerExec(result.containerId, [
-		"sh", "-c", "git -C /workspace/repo diff > /output/diff.patch",
-	], 30_000);
+	await containerExec(
+		result.containerId,
+		["sh", "-c", "git -C /workspace/repo diff > /output/diff.patch"],
+		30_000,
+	);
 
 	// Read from host side
 	const diffPath = join(result.workDir, "diff.patch");
@@ -264,34 +300,53 @@ async function scanGitConfig(containerId: string): Promise<void> {
 	const issues: string[] = [];
 
 	// Check for submodules
-	const submoduleCheck = await containerExec(containerId, [
-		"sh", "-c", "test -f /workspace/repo/.gitmodules && echo 'HAS_SUBMODULES' || echo 'OK'",
-	], 5_000);
+	const submoduleCheck = await containerExec(
+		containerId,
+		["sh", "-c", "test -f /workspace/repo/.gitmodules && echo 'HAS_SUBMODULES' || echo 'OK'"],
+		5_000,
+	);
 	if (submoduleCheck.stdout.trim() === "HAS_SUBMODULES") {
 		issues.push("Repo contains git submodules — potential vector for pulling malicious content");
 	}
 
 	// Check for git LFS
-	const lfsCheck = await containerExec(containerId, [
-		"sh", "-c", "test -f /workspace/repo/.gitattributes && grep -l 'filter=lfs' /workspace/repo/.gitattributes && echo 'HAS_LFS' || echo 'OK'",
-	], 5_000);
+	const lfsCheck = await containerExec(
+		containerId,
+		[
+			"sh",
+			"-c",
+			"test -f /workspace/repo/.gitattributes && grep -l 'filter=lfs' /workspace/repo/.gitattributes && echo 'HAS_LFS' || echo 'OK'",
+		],
+		5_000,
+	);
 	if (lfsCheck.stdout.includes("HAS_LFS")) {
 		issues.push("Repo uses Git LFS — large binary objects could be pulled");
 	}
 
 	// Check for custom filters in .gitattributes
-	const filterCheck = await containerExec(containerId, [
-		"sh", "-c", "test -f /workspace/repo/.gitattributes && grep -E 'filter=(?!lfs)' /workspace/repo/.gitattributes || echo 'OK'",
-	], 5_000);
+	const filterCheck = await containerExec(
+		containerId,
+		[
+			"sh",
+			"-c",
+			"test -f /workspace/repo/.gitattributes && grep -E 'filter=(?!lfs)' /workspace/repo/.gitattributes || echo 'OK'",
+		],
+		5_000,
+	);
 	if (!filterCheck.stdout.includes("OK") && filterCheck.stdout.trim().length > 0) {
 		issues.push("Repo has custom git filters in .gitattributes — potential code execution vector");
 	}
 
 	// Check for post-checkout or other hooks smuggled as regular files
-	const hookCheck = await containerExec(containerId, [
-		"sh", "-c",
-		"find /workspace/repo -name '*.hook' -o -name 'post-*' -o -name 'pre-*' | grep -v '.git/' | head -5 || echo 'OK'",
-	], 5_000);
+	const hookCheck = await containerExec(
+		containerId,
+		[
+			"sh",
+			"-c",
+			"find /workspace/repo -name '*.hook' -o -name 'post-*' -o -name 'pre-*' | grep -v '.git/' | head -5 || echo 'OK'",
+		],
+		5_000,
+	);
 	if (!hookCheck.stdout.includes("OK") && hookCheck.stdout.trim().length > 0) {
 		issues.push(`Suspicious hook-like files found: ${hookCheck.stdout.trim()}`);
 	}
@@ -334,18 +389,19 @@ export async function containerExec(
 
 // ── Host-side exec helper ──────────────────────────────────────
 
-function exec(
-	command: string,
-	args: string[],
-	options: { timeout: number },
-): Promise<string> {
+function exec(command: string, args: string[], options: { timeout: number }): Promise<string> {
 	return new Promise((resolve, reject) => {
-		execFile(command, args, { timeout: options.timeout, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
-			if (err) {
-				reject(new Error(`${command} failed: ${stderr || err.message}`));
-			} else {
-				resolve(stdout);
-			}
-		});
+		execFile(
+			command,
+			args,
+			{ timeout: options.timeout, maxBuffer: 10 * 1024 * 1024 },
+			(err, stdout, stderr) => {
+				if (err) {
+					reject(new Error(`${command} failed: ${stderr || err.message}`));
+				} else {
+					resolve(stdout);
+				}
+			},
+		);
 	});
 }

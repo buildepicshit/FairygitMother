@@ -1,7 +1,7 @@
 import { type FairygitMotherConfig, loadConfig } from "@fairygitmother/core";
-import { checkDiffSafety, type SafetyCheckResult } from "../orchestrator/governor.js";
+import { type SafetyCheckResult, checkDiffSafety } from "../orchestrator/governor.js";
 
-export { type SafetyCheckResult };
+export type { SafetyCheckResult };
 
 const PROMPT_INJECTION_PATTERNS = [
 	/ignore\s+(all\s+)?previous\s+instructions/i,

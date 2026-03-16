@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { addFeedListener, emitEvent, getListenerCount } from "@fairygitmother/server/api/feed.js";
 import type { FeedEvent } from "@fairygitmother/core";
+import { addFeedListener, emitEvent, getListenerCount } from "@fairygitmother/server/api/feed.js";
+import { afterEach, describe, expect, it } from "vitest";
 
 describe("feed pub/sub (WebSocket backing)", () => {
 	let removers: Array<() => void> = [];

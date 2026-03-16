@@ -1,5 +1,5 @@
-import type { Context } from "hono";
 import type { FeedEvent } from "@fairygitmother/core";
+import type { Context } from "hono";
 import { addFeedListener } from "./feed.js";
 
 /**
@@ -40,59 +40,61 @@ export function attachWebSocketHandler(
 	server: import("node:http").Server | import("node:net").Server,
 ) {
 	// Dynamically import ws to avoid hard dep at module level
-	import("ws").then(({ WebSocketServer }) => {
-		const wss = new WebSocketServer({ noServer: true });
+	import("ws")
+		.then(({ WebSocketServer }) => {
+			const wss = new WebSocketServer({ noServer: true });
 
-		(server as import("node:http").Server).on("upgrade", (request, socket, head) => {
-			const url = new URL(request.url ?? "/", `http://${request.headers.host}`);
+			(server as import("node:http").Server).on("upgrade", (request, socket, head) => {
+				const url = new URL(request.url ?? "/", `http://${request.headers.host}`);
 
-			if (url.pathname !== "/api/v1/feed") {
-				socket.destroy();
-				return;
-			}
+				if (url.pathname !== "/api/v1/feed") {
+					socket.destroy();
+					return;
+				}
 
-			wss.handleUpgrade(request, socket, head, (ws) => {
-				wss.emit("connection", ws, request);
+				wss.handleUpgrade(request, socket, head, (ws) => {
+					wss.emit("connection", ws, request);
+				});
 			});
-		});
 
-		wss.on("connection", (ws) => {
-			activeSockets.add(ws);
+			wss.on("connection", (ws) => {
+				activeSockets.add(ws);
 
-			const removeListener = addFeedListener((event: FeedEvent) => {
+				const removeListener = addFeedListener((event: FeedEvent) => {
+					if (ws.readyState === ws.OPEN) {
+						try {
+							ws.send(JSON.stringify(event));
+						} catch {
+							// Send failed — client probably disconnected
+						}
+					}
+				});
+
+				ws.on("close", () => {
+					removeListener();
+					activeSockets.delete(ws);
+				});
+
+				ws.on("error", () => {
+					removeListener();
+					activeSockets.delete(ws);
+				});
+
+				// Send a welcome event so the client knows connection is live
 				if (ws.readyState === ws.OPEN) {
 					try {
-						ws.send(JSON.stringify(event));
+						ws.send(JSON.stringify({ type: "connected", timestamp: new Date().toISOString() }));
 					} catch {
-						// Send failed — client probably disconnected
+						// Swallow
 					}
 				}
 			});
 
-			ws.on("close", () => {
-				removeListener();
-				activeSockets.delete(ws);
-			});
-
-			ws.on("error", () => {
-				removeListener();
-				activeSockets.delete(ws);
-			});
-
-			// Send a welcome event so the client knows connection is live
-			if (ws.readyState === ws.OPEN) {
-				try {
-					ws.send(JSON.stringify({ type: "connected", timestamp: new Date().toISOString() }));
-				} catch {
-					// Swallow
-				}
-			}
+			console.log("[websocket] Feed WebSocket handler attached at /api/v1/feed");
+		})
+		.catch((err) => {
+			console.warn("[websocket] 'ws' package not available — WebSocket feed disabled.", err);
 		});
-
-		console.log("[websocket] Feed WebSocket handler attached at /api/v1/feed");
-	}).catch((err) => {
-		console.warn("[websocket] 'ws' package not available — WebSocket feed disabled.", err);
-	});
 }
 
 export function getActiveSocketCount(): number {

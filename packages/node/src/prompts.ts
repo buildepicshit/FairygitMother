@@ -76,20 +76,14 @@ If you're unsure, reject. It's better to reject a good fix than approve a bad on
 
 // ── API-only mode prompts ──────────────────────────────────────
 
-export function buildApiSolvePrompt(
-	bounty: Bounty,
-	files: RepoFile[],
-	tree: RepoTree,
-): string {
+export function buildApiSolvePrompt(bounty: Bounty, files: RepoFile[], tree: RepoTree): string {
 	const fileList = tree.files
 		.slice(0, 100)
 		.map((f) => `  ${f.path} (${f.size} bytes)`)
 		.join("\n");
 
 	const fileContents = files
-		.map(
-			(f) => `### ${f.path}\n\`\`\`\n${f.content.slice(0, 10_000)}\n\`\`\``,
-		)
+		.map((f) => `### ${f.path}\n\`\`\`\n${f.content.slice(0, 10_000)}\n\`\`\``)
 		.join("\n\n");
 
 	return `You are fixing a GitHub issue. You have been given the relevant source files
@@ -141,9 +135,7 @@ export function buildApiReviewPrompt(
 	files: RepoFile[],
 ): string {
 	const fileContents = files
-		.map(
-			(f) => `### ${f.path}\n\`\`\`\n${f.content.slice(0, 10_000)}\n\`\`\``,
-		)
+		.map((f) => `### ${f.path}\n\`\`\`\n${f.content.slice(0, 10_000)}\n\`\`\``)
 		.join("\n\n");
 
 	return `You are reviewing a proposed fix for a GitHub issue. You have the original

@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { generateId, generateApiKey } from "@fairygitmother/core";
+import { generateApiKey, generateId } from "@fairygitmother/core";
+import { describe, expect, it } from "vitest";
 
 describe("generateId", () => {
 	it("generates unique IDs", () => {

@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { selectSolverMode, isRepoTrusted } from "@fairygitmother/node";
+import { isRepoTrusted, selectSolverMode } from "@fairygitmother/node";
+import { describe, expect, it } from "vitest";
 
 describe("selectSolverMode", () => {
 	const noTrust: { owner: string; repo: string }[] = [];

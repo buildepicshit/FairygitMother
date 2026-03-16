@@ -32,24 +32,19 @@ export function createIdleDetector(): IdleDetector {
 
 function getDarwinIdleTime(): Promise<number> {
 	return new Promise((resolve) => {
-		execFile(
-			"ioreg",
-			["-c", "IOHIDSystem", "-d", "4"],
-			{ timeout: 5000 },
-			(err, stdout) => {
-				if (err) {
-					resolve(0);
-					return;
-				}
-				const match = stdout.match(/"HIDIdleTime"\s*=\s*(\d+)/);
-				if (match) {
-					// HIDIdleTime is in nanoseconds
-					resolve(Number(match[1]) / 1_000_000);
-				} else {
-					resolve(0);
-				}
-			},
-		);
+		execFile("ioreg", ["-c", "IOHIDSystem", "-d", "4"], { timeout: 5000 }, (err, stdout) => {
+			if (err) {
+				resolve(0);
+				return;
+			}
+			const match = stdout.match(/"HIDIdleTime"\s*=\s*(\d+)/);
+			if (match) {
+				// HIDIdleTime is in nanoseconds
+				resolve(Number(match[1]) / 1_000_000);
+			} else {
+				resolve(0);
+			}
+		});
 	});
 }
 

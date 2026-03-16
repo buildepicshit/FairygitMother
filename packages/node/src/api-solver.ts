@@ -12,7 +12,7 @@
  * - Best for simple fixes (good first issue, typos, small bugs)
  */
 
-import { GitHubClient, type Bounty } from "@fairygitmother/core";
+import type { Bounty, GitHubClient } from "@fairygitmother/core";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -52,7 +52,7 @@ export async function fetchRepoTree(
 	ref = "HEAD",
 ): Promise<RepoTree> {
 	// Use the internal octokit to get the tree
-	const repoInfo = await github.getRepoInfo(owner, repo);
+	const _repoInfo = await github.getRepoInfo(owner, repo);
 	const response = await (github as any).octokit.rest.git.getTree({
 		owner,
 		repo,
@@ -150,10 +150,7 @@ export async function buildApiSolverContext(
  * - Common entry points (README, package.json, etc.)
  * - Files matching the issue's language
  */
-function identifyRelevantFiles(
-	tree: RepoTree,
-	bounty: Bounty,
-): string[] {
+function identifyRelevantFiles(tree: RepoTree, bounty: Bounty): string[] {
 	const issueText = `${bounty.issueTitle} ${bounty.issueBody}`.toLowerCase();
 	const allPaths = tree.files.map((f) => f.path);
 	const relevant = new Set<string>();
@@ -261,8 +258,8 @@ function computeHunks(oldLines: string[], newLines: string[]): string[] {
 
 	let oldIdx = 0;
 	let newIdx = 0;
-	let hunkOldStart = 1;
-	let hunkNewStart = 1;
+	const hunkOldStart = 1;
+	const hunkNewStart = 1;
 	const hunkLines: string[] = [];
 
 	for (const common of lcs) {

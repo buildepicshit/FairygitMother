@@ -1,13 +1,8 @@
+import { HeartbeatRequestSchema, RegisterNodeRequestSchema } from "@fairygitmother/core";
 import { Hono } from "hono";
-import { RegisterNodeRequestSchema, HeartbeatRequestSchema } from "@fairygitmother/core";
 import type { FairygitMotherDb } from "../db/client.js";
-import {
-	registerNode,
-	heartbeat,
-	findNodeByApiKey,
-	removeNode,
-} from "../orchestrator/registry.js";
 import { dequeueForNode, markAssigned } from "../orchestrator/queue.js";
+import { heartbeat, registerNode, removeNode } from "../orchestrator/registry.js";
 
 export function createNodeRoutes(db: FairygitMotherDb) {
 	const app = new Hono();

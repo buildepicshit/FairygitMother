@@ -1,4 +1,4 @@
-import { eq, ne, and } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import type { FairygitMotherDb } from "../db/client.js";
 import { nodes, submissions, votes } from "../db/schema.js";
 import { getConsensusRequirement } from "../orchestrator/reputation.js";
@@ -8,15 +8,8 @@ export interface ReviewAssignment {
 	submissionId: string;
 }
 
-export function assignReviewers(
-	db: FairygitMotherDb,
-	submissionId: string,
-): ReviewAssignment[] {
-	const submission = db
-		.select()
-		.from(submissions)
-		.where(eq(submissions.id, submissionId))
-		.get();
+export function assignReviewers(db: FairygitMotherDb, submissionId: string): ReviewAssignment[] {
+	const submission = db.select().from(submissions).where(eq(submissions.id, submissionId)).get();
 	if (!submission) return [];
 
 	const requiredVotes = getConsensusRequirement(db, submission.nodeId);
@@ -29,11 +22,7 @@ export function assignReviewers(
 		.all();
 
 	// Filter out nodes that have already voted on this submission
-	const existingVotes = db
-		.select()
-		.from(votes)
-		.where(eq(votes.submissionId, submissionId))
-		.all();
+	const existingVotes = db.select().from(votes).where(eq(votes.submissionId, submissionId)).all();
 	const alreadyVoted = new Set(existingVotes.map((v) => v.reviewerNodeId));
 
 	const eligible = candidates
@@ -50,20 +39,12 @@ export function assignReviewers(
 }
 
 export function getReviewersNeeded(db: FairygitMotherDb, submissionId: string): number {
-	const submission = db
-		.select()
-		.from(submissions)
-		.where(eq(submissions.id, submissionId))
-		.get();
+	const submission = db.select().from(submissions).where(eq(submissions.id, submissionId)).get();
 	if (!submission) return 3;
 
 	const required = getConsensusRequirement(db, submission.nodeId);
 
-	const existingVotes = db
-		.select()
-		.from(votes)
-		.where(eq(votes.submissionId, submissionId))
-		.all();
+	const existingVotes = db.select().from(votes).where(eq(votes.submissionId, submissionId)).all();
 
 	return Math.max(0, required - existingVotes.length);
 }

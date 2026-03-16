@@ -6,18 +6,18 @@
  * is not available (e.g., CI without Docker).
  */
 import { execFile } from "node:child_process";
-import { describe, it, expect, afterAll } from "vitest";
 import {
-	isDockerAvailable,
-	ensureSandboxImage,
-	safeClone,
+	type SafeCloneResult,
 	containerExec,
+	ensureSandboxImage,
+	exportDiff,
+	generateDiff,
+	isDockerAvailable,
 	listContainerFiles,
 	readContainerFile,
-	generateDiff,
-	exportDiff,
-	type SafeCloneResult,
+	safeClone,
 } from "@fairygitmother/node";
+import { afterAll, describe, expect, it } from "vitest";
 
 // ── Pre-check: is Docker available? ────────────────────────────
 // Resolved once before the suite so we can use describe.skipIf.
@@ -26,15 +26,10 @@ const dockerAvailable = await isDockerAvailable();
 // Small helper to call docker inspect from the host for verification
 function dockerInspect(containerId: string): Promise<string> {
 	return new Promise((resolve, reject) => {
-		execFile(
-			"docker",
-			["inspect", containerId],
-			{ timeout: 10_000 },
-			(err, stdout) => {
-				if (err) reject(err);
-				else resolve(stdout);
-			},
-		);
+		execFile("docker", ["inspect", containerId], { timeout: 10_000 }, (err, stdout) => {
+			if (err) reject(err);
+			else resolve(stdout);
+		});
 	});
 }
 
@@ -98,7 +93,7 @@ describe.skipIf(!dockerAvailable)("FairygitMother sandbox — Docker integration
 		// After `docker network disconnect bridge <cid>`, the Networks map
 		// should be empty.
 		const networksRaw = await dockerInspectFormat(
-			cloneResult!.containerId,
+			cloneResult?.containerId,
 			"{{json .NetworkSettings.Networks}}",
 		);
 		const networks = JSON.parse(networksRaw);
@@ -110,9 +105,11 @@ describe.skipIf(!dockerAvailable)("FairygitMother sandbox — Docker integration
 		// command itself will error out — either "not found" or "network
 		// unreachable". Both are acceptable proof of isolation.
 		await expect(
-			containerExec(cloneResult!.containerId, [
-				"sh", "-c", "wget -q --spider http://example.com 2>&1 || echo BLOCKED",
-			], 10_000),
+			containerExec(
+				cloneResult?.containerId,
+				["sh", "-c", "wget -q --spider http://example.com 2>&1 || echo BLOCKED"],
+				10_000,
+			),
 		).rejects.toThrow(); // wget not found → exec error (non-zero exit)
 	}, 15_000);
 
@@ -147,17 +144,21 @@ describe.skipIf(!dockerAvailable)("FairygitMother sandbox — Docker integration
 		expect(cloneResult).not.toBeNull();
 
 		// Write a new file inside the repo
-		await containerExec(cloneResult!.containerId, [
-			"sh", "-c", "echo 'test change from FairygitMother' > /workspace/repo/TESTFILE.txt",
-		], 10_000);
+		await containerExec(
+			cloneResult?.containerId,
+			["sh", "-c", "echo 'test change from FairygitMother' > /workspace/repo/TESTFILE.txt"],
+			10_000,
+		);
 
 		// Stage it so diff --name-only picks it up (for untracked files
 		// we need git add first, but generateDiff uses plain `git diff`
 		// which only shows tracked changes). Instead, just modify an
 		// existing tracked file to produce a diff.
-		await containerExec(cloneResult!.containerId, [
-			"sh", "-c", "echo '\\nFairygitMother was here' >> /workspace/repo/README",
-		], 10_000);
+		await containerExec(
+			cloneResult?.containerId,
+			["sh", "-c", "echo '\\nFairygitMother was here' >> /workspace/repo/README"],
+			10_000,
+		);
 
 		// generateDiff — unstaged diff of tracked files
 		const diff = await generateDiff(cloneResult!);
@@ -181,15 +182,22 @@ describe.skipIf(!dockerAvailable)("FairygitMother sandbox — Docker integration
 		// checking there is no .gitmodules or filter-based .gitattributes.
 		expect(cloneResult).not.toBeNull();
 
-		const submoduleCheck = await containerExec(cloneResult!.containerId, [
-			"sh", "-c", "test -f /workspace/repo/.gitmodules && echo EXISTS || echo NONE",
-		], 5_000);
+		const submoduleCheck = await containerExec(
+			cloneResult?.containerId,
+			["sh", "-c", "test -f /workspace/repo/.gitmodules && echo EXISTS || echo NONE"],
+			5_000,
+		);
 		expect(submoduleCheck.stdout.trim()).toBe("NONE");
 
-		const lfsCheck = await containerExec(cloneResult!.containerId, [
-			"sh", "-c",
-			"test -f /workspace/repo/.gitattributes && grep -c 'filter=lfs' /workspace/repo/.gitattributes || echo 0",
-		], 5_000);
+		const lfsCheck = await containerExec(
+			cloneResult?.containerId,
+			[
+				"sh",
+				"-c",
+				"test -f /workspace/repo/.gitattributes && grep -c 'filter=lfs' /workspace/repo/.gitattributes || echo 0",
+			],
+			5_000,
+		);
 		expect(lfsCheck.stdout.trim()).toBe("0");
 	}, 15_000);
 
@@ -198,8 +206,8 @@ describe.skipIf(!dockerAvailable)("FairygitMother sandbox — Docker integration
 	it("cleanup removes the container and host directory", async () => {
 		expect(cloneResult).not.toBeNull();
 
-		const cid = cloneResult!.containerId;
-		await cloneResult!.cleanup();
+		const cid = cloneResult?.containerId;
+		await cloneResult?.cleanup();
 
 		// After cleanup, docker inspect should fail (container gone)
 		await expect(dockerInspect(cid)).rejects.toThrow();

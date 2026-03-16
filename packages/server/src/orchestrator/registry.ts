@@ -1,9 +1,9 @@
-import { eq, lt, and, ne, sql } from "drizzle-orm";
-import { generateId, generateApiKey, type NodeCapabilities } from "@fairygitmother/core";
-import type { FairygitMotherDb } from "../db/client.js";
-import { nodes } from "../db/schema.js";
+import { type NodeCapabilities, generateApiKey, generateId } from "@fairygitmother/core";
+import { and, eq, lt, ne, sql } from "drizzle-orm";
 import { emitEvent } from "../api/feed.js";
 import { logAudit } from "../audit.js";
+import type { FairygitMotherDb } from "../db/client.js";
+import { nodes } from "../db/schema.js";
 
 export interface RegisteredNode {
 	id: string;
@@ -71,15 +71,8 @@ export function removeNode(db: FairygitMotherDb, nodeId: string) {
 	logAudit(db, "node_pruned", nodeId, { reason: "removed" });
 }
 
-export function matchBountyToNode(
-	db: FairygitMotherDb,
-	language: string | null,
-): string | null {
-	const idleNodes = db
-		.select()
-		.from(nodes)
-		.where(eq(nodes.status, "idle"))
-		.all();
+export function matchBountyToNode(db: FairygitMotherDb, language: string | null): string | null {
+	const idleNodes = db.select().from(nodes).where(eq(nodes.status, "idle")).all();
 
 	if (idleNodes.length === 0) return null;
 

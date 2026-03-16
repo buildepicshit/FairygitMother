@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { loadConfig, FairygitMotherConfigSchema } from "@fairygitmother/core";
+import { FairygitMotherConfigSchema, loadConfig } from "@fairygitmother/core";
+import { afterEach, describe, expect, it } from "vitest";
 
 describe("loadConfig", () => {
 	const originalEnv = { ...process.env };

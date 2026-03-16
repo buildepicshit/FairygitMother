@@ -66,11 +66,7 @@ export function selectSolverMode(
  * Checks if a repo matches any entry in the trusted repos list.
  * Supports wildcards: { owner: "myorg", repo: "*" } trusts all repos from myorg.
  */
-export function isRepoTrusted(
-	owner: string,
-	repo: string,
-	trustedRepos: TrustedRepo[],
-): boolean {
+export function isRepoTrusted(owner: string, repo: string, trustedRepos: TrustedRepo[]): boolean {
 	return trustedRepos.some(
 		(r) =>
 			r.owner.toLowerCase() === owner.toLowerCase() &&

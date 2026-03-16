@@ -1,8 +1,8 @@
-import { eq, and } from "drizzle-orm";
-import { generateId, type GitHubClient, type GitHubIssue } from "@fairygitmother/core";
+import { type GitHubClient, type GitHubIssue, generateId } from "@fairygitmother/core";
+import { and, eq } from "drizzle-orm";
+import { emitEvent } from "../api/feed.js";
 import type { FairygitMotherDb } from "../db/client.js";
 import { bounties, repos } from "../db/schema.js";
-import { emitEvent } from "../api/feed.js";
 
 const QUALIFYING_LABELS = ["good first issue", "help wanted", "fairygitmother"];
 
@@ -11,11 +11,7 @@ export interface TrawlerOptions {
 	github: GitHubClient;
 }
 
-export async function scanRepo(
-	opts: TrawlerOptions,
-	owner: string,
-	repo: string,
-): Promise<number> {
+export async function scanRepo(opts: TrawlerOptions, owner: string, repo: string): Promise<number> {
 	const { db, github } = opts;
 	const issues = await github.fetchGoodFirstIssues(owner, repo, 20);
 	let created = 0;

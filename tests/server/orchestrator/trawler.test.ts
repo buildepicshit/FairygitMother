@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { isEligible, estimateComplexity } from "@fairygitmother/server/orchestrator/trawler.js";
 import type { GitHubIssue } from "@fairygitmother/core";
+import { estimateComplexity, isEligible } from "@fairygitmother/server/orchestrator/trawler.js";
+import { describe, expect, it } from "vitest";
 
 function makeIssue(overrides: Partial<GitHubIssue> = {}): GitHubIssue {
 	return {

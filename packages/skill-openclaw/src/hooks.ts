@@ -32,7 +32,7 @@ export function createFairygitMotherHooks(
 			}
 		},
 
-		async onCommand(command: string, args: string[]) {
+		async onCommand(command: string, _args: string[]) {
 			switch (command) {
 				case "start":
 					if (instance) return "Already running";

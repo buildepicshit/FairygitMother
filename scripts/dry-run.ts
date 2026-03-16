@@ -21,14 +21,14 @@
  * Usage: pnpm dry-run
  */
 
-import { serve } from "@hono/node-server";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { existsSync, unlinkSync } from "node:fs";
 import { randomBytes } from "node:crypto";
+import { existsSync, unlinkSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { serve } from "@hono/node-server";
 import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/better-sqlite3";
 
 // Server internals — imported via relative path since the package only
 // exports the startup entry point, not individual modules.
@@ -40,12 +40,12 @@ import { stopAll } from "../packages/server/src/orchestrator/scheduler.js";
 // Node client + API solver
 import {
 	FairygitMotherClient,
-	fetchRepoTree,
-	fetchFile,
-	generateUnifiedDiff,
-	buildApiSolvePrompt,
-	selectSolverMode,
 	type FileChange,
+	buildApiSolvePrompt,
+	fetchFile,
+	fetchRepoTree,
+	generateUnifiedDiff,
+	selectSolverMode,
 } from "../packages/node/src/index.js";
 
 // Core — GitHubClient
@@ -116,8 +116,8 @@ async function main() {
 
 		// Wait for the server to be ready and extract the assigned port
 		await new Promise<void>((resolve, reject) => {
-			server!.once("listening", resolve);
-			server!.once("error", reject);
+			server?.once("listening", resolve);
+			server?.once("error", reject);
 		});
 		const addr = server.address();
 		if (typeof addr === "object" && addr !== null) {
@@ -180,8 +180,7 @@ async function main() {
 		// Fetch the real issue from GitHub (no auth needed for public repos)
 		const github = new GitHubClient(); // unauthenticated
 		let issueTitle = "Found a bug";
-		let issueBody =
-			"This is a test issue on the classic Hello-World repo.";
+		let issueBody = "This is a test issue on the classic Hello-World repo.";
 
 		try {
 			const issue = await github.fetchIssue("octocat", "Hello-World", 1);
@@ -227,9 +226,7 @@ async function main() {
 		if (!claimResult.bounty) {
 			throw new Error("No bounty available to claim");
 		}
-		ok(
-			`Claimed bounty: ${claimResult.bounty.id} — "${claimResult.bounty.issueTitle}"`,
-		);
+		ok(`Claimed bounty: ${claimResult.bounty.id} — "${claimResult.bounty.issueTitle}"`);
 
 		// ──────────────────────────────────────────────────────────
 		// Step 5: Fetch repo tree and files via GitHub API
@@ -237,38 +234,20 @@ async function main() {
 		log(5, "Fetching repo tree and files via GitHub API (API mode)");
 
 		// Confirm solver mode selection
-		const modeDecision = selectSolverMode(
-			"octocat",
-			"Hello-World",
-			"api",
-			[],
-			false,
-		);
+		const modeDecision = selectSolverMode("octocat", "Hello-World", "api", [], false);
 		ok(`Solver mode: ${modeDecision.mode} — ${modeDecision.reason}`);
 
 		let repoTree: Awaited<ReturnType<typeof fetchRepoTree>>;
 		let readmeFile: Awaited<ReturnType<typeof fetchFile>>;
 
 		try {
-			repoTree = await fetchRepoTree(
-				github,
-				"octocat",
-				"Hello-World",
-				"master",
-			);
-			ok(
-				`Repo tree fetched: ${repoTree.files.length} files (truncated: ${repoTree.truncated})`,
-			);
+			repoTree = await fetchRepoTree(github, "octocat", "Hello-World", "master");
+			ok(`Repo tree fetched: ${repoTree.files.length} files (truncated: ${repoTree.truncated})`);
 			for (const f of repoTree.files) {
 				info(`  ${f.path} (${f.size} bytes)`);
 			}
 
-			readmeFile = await fetchFile(
-				github,
-				"octocat",
-				"Hello-World",
-				"README",
-			);
+			readmeFile = await fetchFile(github, "octocat", "Hello-World", "README");
 			ok(`README fetched: ${readmeFile.size} bytes`);
 			info(`Content: "${readmeFile.content.trim()}"`);
 		} catch {
@@ -321,16 +300,10 @@ async function main() {
 			createdAt: new Date().toISOString(),
 		};
 
-		const prompt = buildApiSolvePrompt(
-			bountyForPrompt,
-			[readmeFile],
-			repoTree,
-		);
+		const prompt = buildApiSolvePrompt(bountyForPrompt, [readmeFile], repoTree);
 		ok(`Prompt built (${prompt.length} chars)`);
 		info("Prompt preview (first 200 chars):");
-		console.log(
-			`  ${prompt.slice(0, 200).replace(/\n/g, "\n  ")}...`,
-		);
+		console.log(`  ${prompt.slice(0, 200).replace(/\n/g, "\n  ")}...`);
 
 		// ──────────────────────────────────────────────────────────
 		// Step 7: Simulate agent producing a fix
@@ -376,8 +349,7 @@ async function main() {
 
 		const fixResult = await solver.submitFix(bountyId, {
 			diff: diffText,
-			explanation:
-				"Added a comment to README to acknowledge the test issue. Minimal change.",
+			explanation: "Added a comment to README to acknowledge the test issue. Minimal change.",
 			filesChanged: ["README"],
 			testsPassed: null,
 			tokensUsed: 42,
@@ -399,27 +371,21 @@ async function main() {
 
 		const vote1Result = (await reviewer1.submitVote(submissionId, {
 			decision: "approve",
-			reasoning:
-				"Minimal fix adding a comment to README. Safe and addresses the issue.",
+			reasoning: "Minimal fix adding a comment to README. Safe and addresses the issue.",
 			issuesFound: [],
 			confidence: 0.95,
 			testsRun: false,
 		})) as unknown as VoteResultRaw;
-		ok(
-			`Reviewer 1 voted: approve (consensus: ${vote1Result.consensusStatus})`,
-		);
+		ok(`Reviewer 1 voted: approve (consensus: ${vote1Result.consensusStatus})`);
 
 		const vote2Result = (await reviewer2.submitVote(submissionId, {
 			decision: "approve",
-			reasoning:
-				"Clean change. Only appends to README, no regression risk.",
+			reasoning: "Clean change. Only appends to README, no regression risk.",
 			issuesFound: [],
 			confidence: 0.9,
 			testsRun: false,
 		})) as unknown as VoteResultRaw;
-		ok(
-			`Reviewer 2 voted: approve (consensus: ${vote2Result.consensusStatus})`,
-		);
+		ok(`Reviewer 2 voted: approve (consensus: ${vote2Result.consensusStatus})`);
 
 		const vote3Result = (await reviewer3.submitVote(submissionId, {
 			decision: "approve",
@@ -428,9 +394,7 @@ async function main() {
 			confidence: 0.92,
 			testsRun: false,
 		})) as unknown as VoteResultRaw;
-		ok(
-			`Reviewer 3 voted: approve (consensus: ${vote3Result.consensusStatus})`,
-		);
+		ok(`Reviewer 3 voted: approve (consensus: ${vote3Result.consensusStatus})`);
 
 		// ──────────────────────────────────────────────────────────
 		// Step 11: Verify consensus was reached
@@ -444,9 +408,7 @@ async function main() {
 			.get();
 
 		if (!consensusRow) {
-			throw new Error(
-				"No consensus result found — pipeline broken!",
-			);
+			throw new Error("No consensus result found — pipeline broken!");
 		}
 
 		consensusOutcome = consensusRow.outcome;
@@ -523,9 +485,7 @@ async function main() {
 		sqlite.close();
 		sqlite = null;
 	} catch (err) {
-		fail(
-			`Dry run failed: ${err instanceof Error ? err.message : String(err)}`,
-		);
+		fail(`Dry run failed: ${err instanceof Error ? err.message : String(err)}`);
 		if (err instanceof Error && err.stack) {
 			console.error(`\n${err.stack}`);
 		}

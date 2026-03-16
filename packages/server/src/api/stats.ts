@@ -1,8 +1,8 @@
-import { Hono } from "hono";
-import { eq, sql, gte, ne } from "drizzle-orm";
 import type { GridStats } from "@fairygitmother/core";
+import { eq, gte, ne, sql } from "drizzle-orm";
+import { Hono } from "hono";
 import type { FairygitMotherDb } from "../db/client.js";
-import { bounties, nodes, consensusResults, submissions } from "../db/schema.js";
+import { bounties, consensusResults, nodes, submissions } from "../db/schema.js";
 
 export function createStatsRoutes(db: FairygitMotherDb) {
 	const app = new Hono();
@@ -18,14 +18,10 @@ export function createStatsRoutes(db: FairygitMotherDb) {
 
 export function getGridStats(db: FairygitMotherDb): GridStats {
 	const activeNodes =
-		db
-			.select({ count: sql<number>`count(*)` })
-			.from(nodes)
-			.where(ne(nodes.status, "offline"))
-			.get()?.count ?? 0;
+		db.select({ count: sql<number>`count(*)` }).from(nodes).where(ne(nodes.status, "offline")).get()
+			?.count ?? 0;
 
-	const totalNodes =
-		db.select({ count: sql<number>`count(*)` }).from(nodes).get()?.count ?? 0;
+	const totalNodes = db.select({ count: sql<number>`count(*)` }).from(nodes).get()?.count ?? 0;
 
 	const queueDepth =
 		db

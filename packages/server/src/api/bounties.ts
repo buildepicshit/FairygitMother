@@ -1,13 +1,13 @@
+import { SubmitFixRequestSchema, generateId } from "@fairygitmother/core";
+import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
-import { generateId, SubmitFixRequestSchema } from "@fairygitmother/core";
-import type { FairygitMotherDb } from "../db/client.js";
-import { bounties, submissions, repos } from "../db/schema.js";
-import { dequeueForNode, markAssigned } from "../orchestrator/queue.js";
-import { scanDiff } from "../consensus/safety.js";
-import { emitEvent } from "./feed.js";
 import { logAudit } from "../audit.js";
+import { scanDiff } from "../consensus/safety.js";
+import type { FairygitMotherDb } from "../db/client.js";
+import { bounties, repos, submissions } from "../db/schema.js";
+import { dequeueForNode, markAssigned } from "../orchestrator/queue.js";
+import { emitEvent } from "./feed.js";
 
 // ── Submission-first: repos/maintainers submit issues to us ────
 
@@ -53,8 +53,16 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 			return c.json({ error: "Invalid request", details: parsed.error.issues }, 400);
 		}
 
-		const { owner, repo, issueNumber, issueTitle, issueBody, labels, language, complexityEstimate } =
-			parsed.data;
+		const {
+			owner,
+			repo,
+			issueNumber,
+			issueTitle,
+			issueBody,
+			labels,
+			language,
+			complexityEstimate,
+		} = parsed.data;
 
 		// Check for duplicate
 		const existing = db
@@ -81,9 +89,7 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 			.get();
 
 		if (!repoRow) {
-			db.insert(repos)
-				.values({ owner, name: repo, language, optInTier: "explicit" })
-				.run();
+			db.insert(repos).values({ owner, name: repo, language, optInTier: "explicit" }).run();
 		}
 
 		const bountyId = generateId("bty");

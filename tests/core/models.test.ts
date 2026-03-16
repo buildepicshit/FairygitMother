@@ -1,14 +1,12 @@
-import { describe, it, expect } from "vitest";
 import {
 	BountySchema,
 	BountyStatusSchema,
-	FixSubmissionSchema,
-	ReviewVoteSchema,
-	NodeRegistrationSchema,
 	ConsensusResultSchema,
+	FixSubmissionSchema,
 	RepoConfigSchema,
-	AuditLogEntrySchema,
+	ReviewVoteSchema,
 } from "@fairygitmother/core";
+import { describe, expect, it } from "vitest";
 
 describe("BountyStatusSchema", () => {
 	it("accepts valid statuses", () => {

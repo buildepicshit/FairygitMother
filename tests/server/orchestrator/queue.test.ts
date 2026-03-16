@@ -1,23 +1,34 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { eq } from "drizzle-orm";
-import * as schema from "@fairygitmother/server/db/schema.js";
-import { enqueue, dequeueForNode, markAssigned, requeue, getQueueDepth } from "@fairygitmother/server/orchestrator/queue.js";
-import { generateId, generateApiKey } from "@fairygitmother/core";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { generateApiKey, generateId } from "@fairygitmother/core";
+import * as schema from "@fairygitmother/server/db/schema.js";
+import {
+	dequeueForNode,
+	getQueueDepth,
+	markAssigned,
+	requeue,
+} from "@fairygitmother/server/orchestrator/queue.js";
+import Database from "better-sqlite3";
+import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import { beforeEach, describe, expect, it } from "vitest";
 
 function createTestDb() {
 	const sqlite = new Database(":memory:");
 	sqlite.pragma("journal_mode = WAL");
 	sqlite.pragma("foreign_keys = ON");
-	const migration = readFileSync(resolve(import.meta.dirname, "../../../migrations/0001_initial.sql"), "utf-8");
+	const migration = readFileSync(
+		resolve(import.meta.dirname, "../../../migrations/0001_initial.sql"),
+		"utf-8",
+	);
 	sqlite.exec(migration);
 	return drizzle(sqlite, { schema });
 }
 
-function insertBounty(db: ReturnType<typeof drizzle>, overrides: Partial<typeof schema.bounties.$inferInsert> = {}) {
+function insertBounty(
+	db: ReturnType<typeof drizzle>,
+	overrides: Partial<typeof schema.bounties.$inferInsert> = {},
+) {
 	const bounty = {
 		id: generateId("bty"),
 		owner: "testorg",
@@ -37,7 +48,10 @@ function insertBounty(db: ReturnType<typeof drizzle>, overrides: Partial<typeof 
 	return bounty;
 }
 
-function insertNode(db: ReturnType<typeof drizzle>, overrides: Partial<typeof schema.nodes.$inferInsert> = {}) {
+function insertNode(
+	db: ReturnType<typeof drizzle>,
+	overrides: Partial<typeof schema.nodes.$inferInsert> = {},
+) {
 	const node = {
 		id: generateId("node"),
 		apiKey: generateApiKey(),
@@ -98,11 +112,13 @@ describe("queue", () => {
 
 		it("skips blacklisted repos", () => {
 			const node = insertNode(db);
-			db.insert(schema.repos).values({
-				owner: "testorg",
-				name: "testrepo",
-				blacklisted: true,
-			}).run();
+			db.insert(schema.repos)
+				.values({
+					owner: "testorg",
+					name: "testrepo",
+					blacklisted: true,
+				})
+				.run();
 			insertBounty(db);
 			expect(dequeueForNode(db, node.id)).toBeNull();
 		});
@@ -114,7 +130,11 @@ describe("queue", () => {
 			const node = insertNode(db);
 			markAssigned(db, bounty.id, node.id);
 
-			const updated = db.select().from(schema.bounties).where(eq(schema.bounties.id, bounty.id)).get();
+			const updated = db
+				.select()
+				.from(schema.bounties)
+				.where(eq(schema.bounties.id, bounty.id))
+				.get();
 			expect(updated?.status).toBe("assigned");
 			expect(updated?.assignedNodeId).toBe(node.id);
 		});
@@ -125,7 +145,11 @@ describe("queue", () => {
 			const bounty = insertBounty(db, { status: "assigned", retryCount: 1 });
 			requeue(db, bounty.id);
 
-			const updated = db.select().from(schema.bounties).where(eq(schema.bounties.id, bounty.id)).get();
+			const updated = db
+				.select()
+				.from(schema.bounties)
+				.where(eq(schema.bounties.id, bounty.id))
+				.get();
 			expect(updated?.status).toBe("queued");
 			expect(updated?.assignedNodeId).toBeNull();
 			expect(updated?.retryCount).toBe(2);

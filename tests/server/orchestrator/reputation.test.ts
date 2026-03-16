@@ -1,30 +1,35 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { eq } from "drizzle-orm";
-import * as schema from "@fairygitmother/server/db/schema.js";
-import {
-	applyReputationEvent,
-	applyDailyDecay,
-	isSuspended,
-	isOnProbation,
-	getConsensusRequirement,
-	getReputation,
-} from "@fairygitmother/server/orchestrator/reputation.js";
-import { generateId, generateApiKey } from "@fairygitmother/core";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { generateApiKey, generateId } from "@fairygitmother/core";
+import * as schema from "@fairygitmother/server/db/schema.js";
+import {
+	applyDailyDecay,
+	applyReputationEvent,
+	getConsensusRequirement,
+	getReputation,
+	isOnProbation,
+	isSuspended,
+} from "@fairygitmother/server/orchestrator/reputation.js";
+import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import { beforeEach, describe, expect, it } from "vitest";
 
 function createTestDb() {
 	const sqlite = new Database(":memory:");
 	sqlite.pragma("journal_mode = WAL");
 	sqlite.pragma("foreign_keys = ON");
-	const migration = readFileSync(resolve(import.meta.dirname, "../../../migrations/0001_initial.sql"), "utf-8");
+	const migration = readFileSync(
+		resolve(import.meta.dirname, "../../../migrations/0001_initial.sql"),
+		"utf-8",
+	);
 	sqlite.exec(migration);
 	return drizzle(sqlite, { schema });
 }
 
-function insertNode(db: ReturnType<typeof drizzle>, overrides: Partial<typeof schema.nodes.$inferInsert> = {}) {
+function insertNode(
+	db: ReturnType<typeof drizzle>,
+	overrides: Partial<typeof schema.nodes.$inferInsert> = {},
+) {
 	const node = {
 		id: generateId("node"),
 		apiKey: generateApiKey(),

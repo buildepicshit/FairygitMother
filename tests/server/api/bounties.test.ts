@@ -1,17 +1,20 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as schema from "@fairygitmother/server/db/schema.js";
-import { createApp } from "@fairygitmother/server/app.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { generateId, generateApiKey } from "@fairygitmother/core";
+import { generateId } from "@fairygitmother/core";
+import { createApp } from "@fairygitmother/server/app.js";
+import * as schema from "@fairygitmother/server/db/schema.js";
+import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import { beforeEach, describe, expect, it } from "vitest";
 
 function createTestDb() {
 	const sqlite = new Database(":memory:");
 	sqlite.pragma("journal_mode = WAL");
 	sqlite.pragma("foreign_keys = ON");
-	const migration = readFileSync(resolve(import.meta.dirname, "../../../migrations/0001_initial.sql"), "utf-8");
+	const migration = readFileSync(
+		resolve(import.meta.dirname, "../../../migrations/0001_initial.sql"),
+		"utf-8",
+	);
 	sqlite.exec(migration);
 	return drizzle(sqlite, { schema });
 }
@@ -126,7 +129,7 @@ describe("bounties API", () => {
 
 	describe("POST /api/v1/bounties/claim", () => {
 		it("claims a bounty for a registered node", async () => {
-			const { nodeId, apiKey } = await registerNode(app);
+			const { apiKey } = await registerNode(app);
 
 			// Create a bounty (public endpoint)
 			await app.request("/api/v1/bounties", {
@@ -181,17 +184,19 @@ describe("bounties API", () => {
 
 			// Create a bounty directly in DB
 			const bountyId = generateId("bty");
-			db.insert(schema.bounties).values({
-				id: bountyId,
-				owner: "org",
-				repo: "repo",
-				issueNumber: 1,
-				issueTitle: "Bug",
-				issueBody: "",
-				labels: [],
-				status: "assigned",
-				assignedNodeId: nodeId,
-			}).run();
+			db.insert(schema.bounties)
+				.values({
+					id: bountyId,
+					owner: "org",
+					repo: "repo",
+					issueNumber: 1,
+					issueTitle: "Bug",
+					issueBody: "",
+					labels: [],
+					status: "assigned",
+					assignedNodeId: nodeId,
+				})
+				.run();
 
 			const res = await app.request(`/api/v1/bounties/${bountyId}/submit`, {
 				method: "POST",

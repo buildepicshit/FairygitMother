@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { scanDiff, scanSourceFile } from "@fairygitmother/server/consensus/safety.js";
 import { loadConfig } from "@fairygitmother/core";
+import { scanDiff, scanSourceFile } from "@fairygitmother/server/consensus/safety.js";
+import { describe, expect, it } from "vitest";
 
 describe("scanDiff", () => {
 	it("passes clean diff", () => {

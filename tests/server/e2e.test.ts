@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { eq } from "drizzle-orm";
-import * as schema from "@fairygitmother/server/db/schema.js";
-import { createApp } from "@fairygitmother/server/app.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { createApp } from "@fairygitmother/server/app.js";
+import * as schema from "@fairygitmother/server/db/schema.js";
+import Database from "better-sqlite3";
+import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import { beforeEach, describe, expect, it } from "vitest";
 
 // ── Test helpers ────────────────────────────────────────────────
 
@@ -124,9 +124,7 @@ async function submitVote(
 		body: JSON.stringify({
 			decision,
 			reasoning:
-				decision === "approve"
-					? "Clean fix, tests pass, no issues"
-					: "Code introduces regressions",
+				decision === "approve" ? "Clean fix, tests pass, no issues" : "Code introduces regressions",
 			issuesFound: decision === "reject" ? ["regression in edge case"] : [],
 			confidence: 0.9,
 			testsRun: true,
@@ -139,10 +137,7 @@ async function submitVote(
  * New nodes need 3-of-3 (first 5 merges). This bypasses that for simpler tests.
  */
 function liftProbation(db: TestDb, nodeId: string) {
-	db.update(schema.nodes)
-		.set({ totalBountiesSolved: 5 })
-		.where(eq(schema.nodes.id, nodeId))
-		.run();
+	db.update(schema.nodes).set({ totalBountiesSolved: 5 }).where(eq(schema.nodes.id, nodeId)).run();
 }
 
 // ── Tests ───────────────────────────────────────────────────────
@@ -180,7 +175,7 @@ describe("E2E: FairygitMother bounty lifecycle", () => {
 			// Solver claims the bounty
 			const claimResult = await claimBounty(app, solver.apiKey);
 			expect(claimResult.bounty).not.toBeNull();
-			expect(claimResult.bounty!.issueTitle).toBe("Fix the bug");
+			expect(claimResult.bounty?.issueTitle).toBe("Fix the bug");
 
 			// Verify bounty is now assigned
 			const assignedBounty = db
@@ -342,11 +337,7 @@ describe("E2E: FairygitMother bounty lifecycle", () => {
 			expect(solverNode?.reputationScore).toBe(47); // 50 - 3
 
 			// Verify reviewers got accurate review bonus (+2)
-			const r1 = db
-				.select()
-				.from(schema.nodes)
-				.where(eq(schema.nodes.id, reviewer1.nodeId))
-				.get();
+			const r1 = db.select().from(schema.nodes).where(eq(schema.nodes.id, reviewer1.nodeId)).get();
 			expect(r1?.reputationScore).toBe(52); // 50 + 2
 		});
 	});
@@ -527,11 +518,7 @@ describe("E2E: FairygitMother bounty lifecycle", () => {
 			expect(hbIdleBody.acknowledged).toBe(true);
 
 			// Verify node status is idle
-			const nodeAfterIdle = db
-				.select()
-				.from(schema.nodes)
-				.where(eq(schema.nodes.id, nodeId))
-				.get();
+			const nodeAfterIdle = db.select().from(schema.nodes).where(eq(schema.nodes.id, nodeId)).get();
 			expect(nodeAfterIdle?.status).toBe("idle");
 			expect(nodeAfterIdle?.totalTokensDonated).toBe(100);
 
@@ -546,11 +533,7 @@ describe("E2E: FairygitMother bounty lifecycle", () => {
 			});
 			expect(hbBusyRes.status).toBe(200);
 
-			const nodeAfterBusy = db
-				.select()
-				.from(schema.nodes)
-				.where(eq(schema.nodes.id, nodeId))
-				.get();
+			const nodeAfterBusy = db.select().from(schema.nodes).where(eq(schema.nodes.id, nodeId)).get();
 			expect(nodeAfterBusy?.status).toBe("busy");
 			expect(nodeAfterBusy?.totalTokensDonated).toBe(600); // 100 + 500
 
@@ -616,7 +599,7 @@ describe("E2E: FairygitMother bounty lifecycle", () => {
 				pendingBounty: Record<string, unknown> | null;
 			};
 			expect(hbBody.pendingBounty).not.toBeNull();
-			expect(hbBody.pendingBounty!.issueTitle).toBe("Fix the bug");
+			expect(hbBody.pendingBounty?.issueTitle).toBe("Fix the bug");
 		});
 	});
 
@@ -660,20 +643,14 @@ describe("E2E: FairygitMother bounty lifecycle", () => {
 
 			// 2 approvals should NOT be enough for probation node
 			const v1 = await submitVote(app, submissionId, reviewer1.apiKey, "approve");
-			expect(((await v1.json()) as { consensusStatus: string }).consensusStatus).toBe(
-				"pending",
-			);
+			expect(((await v1.json()) as { consensusStatus: string }).consensusStatus).toBe("pending");
 
 			const v2 = await submitVote(app, submissionId, reviewer2.apiKey, "approve");
-			expect(((await v2.json()) as { consensusStatus: string }).consensusStatus).toBe(
-				"pending",
-			);
+			expect(((await v2.json()) as { consensusStatus: string }).consensusStatus).toBe("pending");
 
 			// 3rd approval triggers consensus
 			const v3 = await submitVote(app, submissionId, reviewer3.apiKey, "approve");
-			expect(((await v3.json()) as { consensusStatus: string }).consensusStatus).toBe(
-				"approved",
-			);
+			expect(((await v3.json()) as { consensusStatus: string }).consensusStatus).toBe("approved");
 
 			const bounty = db
 				.select()
@@ -700,9 +677,7 @@ describe("E2E: FairygitMother bounty lifecycle", () => {
 			await submitVote(app, submissionId, r1.apiKey, "approve");
 			await submitVote(app, submissionId, r2.apiKey, "reject");
 			const v3 = await submitVote(app, submissionId, r3.apiKey, "reject");
-			expect(((await v3.json()) as { consensusStatus: string }).consensusStatus).toBe(
-				"rejected",
-			);
+			expect(((await v3.json()) as { consensusStatus: string }).consensusStatus).toBe("rejected");
 
 			const bounty = db
 				.select()
@@ -712,11 +687,7 @@ describe("E2E: FairygitMother bounty lifecycle", () => {
 			expect(bounty?.status).toBe("rejected");
 
 			// Reviewer who approved gets inaccurate penalty (-1.5)
-			const r1Node = db
-				.select()
-				.from(schema.nodes)
-				.where(eq(schema.nodes.id, r1.nodeId))
-				.get();
+			const r1Node = db.select().from(schema.nodes).where(eq(schema.nodes.id, r1.nodeId)).get();
 			expect(r1Node?.reputationScore).toBe(48.5); // 50 - 1.5
 		});
 

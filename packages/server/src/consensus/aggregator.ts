@@ -1,26 +1,18 @@
-import { eq, sql } from "drizzle-orm";
 import { generateId } from "@fairygitmother/core";
-import type { FairygitMotherDb } from "../db/client.js";
-import { bounties, submissions, votes, consensusResults, nodes } from "../db/schema.js";
-import { getConsensusRequirement, applyReputationEvent } from "../orchestrator/reputation.js";
+import { eq, sql } from "drizzle-orm";
 import { emitEvent } from "../api/feed.js";
 import { logAudit } from "../audit.js";
+import type { FairygitMotherDb } from "../db/client.js";
+import { bounties, consensusResults, nodes, submissions, votes } from "../db/schema.js";
+import { applyReputationEvent, getConsensusRequirement } from "../orchestrator/reputation.js";
 
 export type ConsensusDecision = "approved" | "rejected" | "pending" | "timeout";
 
 export function evaluateConsensus(db: FairygitMotherDb, submissionId: string): ConsensusDecision {
-	const submission = db
-		.select()
-		.from(submissions)
-		.where(eq(submissions.id, submissionId))
-		.get();
+	const submission = db.select().from(submissions).where(eq(submissions.id, submissionId)).get();
 	if (!submission) return "pending";
 
-	const allVotes = db
-		.select()
-		.from(votes)
-		.where(eq(votes.submissionId, submissionId))
-		.all();
+	const allVotes = db.select().from(votes).where(eq(votes.submissionId, submissionId)).all();
 
 	const required = getConsensusRequirement(db, submission.nodeId);
 	const approvals = allVotes.filter((v) => v.decision === "approve").length;
@@ -47,11 +39,7 @@ export function recordConsensus(
 	submissionId: string,
 	outcome: "approved" | "rejected" | "timeout",
 ) {
-	const allVotes = db
-		.select()
-		.from(votes)
-		.where(eq(votes.submissionId, submissionId))
-		.all();
+	const allVotes = db.select().from(votes).where(eq(votes.submissionId, submissionId)).all();
 
 	const approvals = allVotes.filter((v) => v.decision === "approve").length;
 	const rejections = allVotes.filter((v) => v.decision === "reject").length;
@@ -69,11 +57,7 @@ export function recordConsensus(
 		.run();
 
 	// Update bounty status
-	const submission = db
-		.select()
-		.from(submissions)
-		.where(eq(submissions.id, submissionId))
-		.get();
+	const submission = db.select().from(submissions).where(eq(submissions.id, submissionId)).get();
 
 	if (submission) {
 		const newStatus = outcome === "approved" ? "approved" : "rejected";

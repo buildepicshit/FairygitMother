@@ -1,7 +1,7 @@
-import { eq, and, gte, sql } from "drizzle-orm";
+import type { FairygitMotherConfig } from "@fairygitmother/core";
+import { and, eq, gte, sql } from "drizzle-orm";
 import type { FairygitMotherDb } from "../db/client.js";
 import { bounties, consensusResults, repos } from "../db/schema.js";
-import type { FairygitMotherConfig } from "@fairygitmother/core";
 
 // ── Blocked patterns for diff safety ───────────────────────────
 
@@ -38,9 +38,7 @@ export function checkDiffSafety(
 
 	// Check file count
 	if (filesChanged.length > config.maxDiffFiles) {
-		issues.push(
-			`Too many files changed: ${filesChanged.length} (max ${config.maxDiffFiles})`,
-		);
+		issues.push(`Too many files changed: ${filesChanged.length} (max ${config.maxDiffFiles})`);
 	}
 
 	// Check blocked extensions

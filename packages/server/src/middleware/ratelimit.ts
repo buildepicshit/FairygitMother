@@ -41,9 +41,7 @@ function extractKey(c: Parameters<MiddlewareHandler>[0]): string {
  *
  * The GET /api/v1/health endpoint is always exempt from rate limiting.
  */
-export function createRateLimiter(
-	opts: Partial<RateLimiterOptions> = {},
-): MiddlewareHandler {
+export function createRateLimiter(opts: Partial<RateLimiterOptions> = {}): MiddlewareHandler {
 	const { windowMs, maxRequests } = { ...DEFAULT_OPTIONS, ...opts };
 	const windows = new Map<string, WindowEntry>();
 

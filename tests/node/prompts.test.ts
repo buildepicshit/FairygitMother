@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { buildSolvePrompt, buildReviewPrompt } from "@fairygitmother/node";
+import { buildReviewPrompt, buildSolvePrompt } from "@fairygitmother/node";
+import { describe, expect, it } from "vitest";
 
 const mockBounty = {
 	id: "bty_test",

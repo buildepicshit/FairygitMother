@@ -1,6 +1,6 @@
-import { eq, and, asc, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import type { FairygitMotherDb } from "../db/client.js";
-import { bounties, repos, nodes } from "../db/schema.js";
+import { bounties, nodes, repos } from "../db/schema.js";
 
 export interface QueuedBounty {
 	id: string;
@@ -23,10 +23,7 @@ export function enqueue(db: FairygitMotherDb, bountyId: string, priority?: numbe
 	}
 }
 
-export function dequeueForNode(
-	db: FairygitMotherDb,
-	nodeId: string,
-): QueuedBounty | null {
+export function dequeueForNode(db: FairygitMotherDb, nodeId: string): QueuedBounty | null {
 	// Find the node's capabilities
 	const node = db.select().from(nodes).where(eq(nodes.id, nodeId)).get();
 	if (!node) return null;

@@ -1,12 +1,5 @@
 import { z } from "zod";
-import {
-	BountySchema,
-	type FixSubmission,
-	NodeCapabilitiesSchema,
-	type NodeStatus,
-	type ReviewVote,
-	VoteDecisionSchema,
-} from "./models.js";
+import { type BountySchema, NodeCapabilitiesSchema, VoteDecisionSchema } from "./models.js";
 
 // ── Node Registration ──────────────────────────────────────────
 

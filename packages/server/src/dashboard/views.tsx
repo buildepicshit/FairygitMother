@@ -1,9 +1,9 @@
+import { desc } from "drizzle-orm";
 import { Hono } from "hono";
 import { html } from "hono/html";
-import type { FairygitMotherDb } from "../db/client.js";
 import { getGridStats } from "../api/stats.js";
-import { bounties, nodes, consensusResults } from "../db/schema.js";
-import { eq, desc, ne } from "drizzle-orm";
+import type { FairygitMotherDb } from "../db/client.js";
+import { bounties, consensusResults, nodes } from "../db/schema.js";
 
 function layout(title: string, content: string) {
 	return html`<!DOCTYPE html>

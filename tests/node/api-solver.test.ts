@@ -1,11 +1,11 @@
-import { describe, it, expect } from "vitest";
 import {
-	generateUnifiedDiff,
 	type FileChange,
 	type RepoFile,
 	type RepoTree,
+	generateUnifiedDiff,
 } from "@fairygitmother/node";
-import { buildApiSolvePrompt, buildApiReviewPrompt } from "@fairygitmother/node";
+import { buildApiReviewPrompt, buildApiSolvePrompt } from "@fairygitmother/node";
+import { describe, expect, it } from "vitest";
 
 describe("generateUnifiedDiff", () => {
 	it("generates diff for a single file change", () => {
@@ -13,8 +13,7 @@ describe("generateUnifiedDiff", () => {
 			{
 				path: "src/utils.ts",
 				originalContent: "export function add(a: number, b: number) {\n  return a + b;\n}\n",
-				newContent:
-					"export function add(a: number, b: number): number {\n  return a + b;\n}\n",
+				newContent: "export function add(a: number, b: number): number {\n  return a + b;\n}\n",
 			},
 		];
 
@@ -105,7 +104,12 @@ describe("buildApiSolvePrompt", () => {
 	};
 
 	const mockFiles: RepoFile[] = [
-		{ path: "src/parser.ts", content: "export function parse(x) { return x.trim(); }", size: 46, sha: "abc" },
+		{
+			path: "src/parser.ts",
+			content: "export function parse(x) { return x.trim(); }",
+			size: 46,
+			sha: "abc",
+		},
 	];
 
 	const mockTree: RepoTree = {

@@ -1,10 +1,10 @@
-import { Hono } from "hono";
+import { SubmitVoteRequestSchema, generateId } from "@fairygitmother/core";
 import { eq, sql } from "drizzle-orm";
-import { generateId, SubmitVoteRequestSchema } from "@fairygitmother/core";
-import type { FairygitMotherDb } from "../db/client.js";
-import { votes, submissions, nodes } from "../db/schema.js";
-import { evaluateConsensus, recordConsensus } from "../consensus/aggregator.js";
+import { Hono } from "hono";
 import { logAudit } from "../audit.js";
+import { evaluateConsensus, recordConsensus } from "../consensus/aggregator.js";
+import type { FairygitMotherDb } from "../db/client.js";
+import { nodes, submissions, votes } from "../db/schema.js";
 
 export function createReviewRoutes(db: FairygitMotherDb) {
 	const app = new Hono();
@@ -22,11 +22,7 @@ export function createReviewRoutes(db: FairygitMotherDb) {
 		const reviewerNodeId = c.get("nodeId") as string;
 
 		// Verify submission exists
-		const submission = db
-			.select()
-			.from(submissions)
-			.where(eq(submissions.id, submissionId))
-			.get();
+		const submission = db.select().from(submissions).where(eq(submissions.id, submissionId)).get();
 		if (!submission) {
 			return c.json({ error: "Submission not found" }, 404);
 		}

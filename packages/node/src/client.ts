@@ -1,14 +1,14 @@
 import type {
-	RegisterNodeRequest,
-	RegisterNodeResponse,
+	ClaimBountyResponse,
+	GridStats,
 	HeartbeatRequest,
 	HeartbeatResponse,
-	ClaimBountyResponse,
+	RegisterNodeRequest,
+	RegisterNodeResponse,
 	SubmitFixRequest,
 	SubmitFixResponse,
 	SubmitVoteRequest,
 	SubmitVoteResponse,
-	GridStats,
 } from "@fairygitmother/core";
 
 export class FairygitMotherClient {
@@ -50,10 +50,7 @@ export class FairygitMotherClient {
 		return this.fetch(`/api/v1/bounties/${bountyId}/submit`, "POST", fix);
 	}
 
-	async submitVote(
-		submissionId: string,
-		vote: SubmitVoteRequest,
-	): Promise<SubmitVoteResponse> {
+	async submitVote(submissionId: string, vote: SubmitVoteRequest): Promise<SubmitVoteResponse> {
 		if (!this.nodeId) throw new Error("Not registered");
 		return this.fetch(`/api/v1/reviews/${submissionId}/vote`, "POST", {
 			...vote,
@@ -77,7 +74,7 @@ export class FairygitMotherClient {
 			"Content-Type": "application/json",
 		};
 		if (this.apiKey) {
-			headers["Authorization"] = `Bearer ${this.apiKey}`;
+			headers.Authorization = `Bearer ${this.apiKey}`;
 		}
 
 		const response = await globalThis.fetch(`${this.baseUrl}${path}`, {

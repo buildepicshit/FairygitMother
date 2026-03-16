@@ -1,13 +1,12 @@
 import { loadConfig } from "@fairygitmother/core";
 import {
 	FairygitMotherClient,
-	safeClone,
+	buildSolvePrompt,
+	createIdleDetector,
 	exportDiff,
 	getChangedFiles,
-	buildSolvePrompt,
-	buildReviewPrompt,
-	createIdleDetector,
 	isDockerAvailable,
+	safeClone,
 } from "@fairygitmother/node";
 
 export interface FairygitMotherSkillOptions {

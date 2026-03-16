@@ -1,9 +1,9 @@
+import type { GitHubClient } from "@fairygitmother/core";
 import { eq } from "drizzle-orm";
-import { type GitHubClient } from "@fairygitmother/core";
-import type { FairygitMotherDb } from "../db/client.js";
-import { bounties, submissions, consensusResults, nodes, votes } from "../db/schema.js";
 import { emitEvent } from "../api/feed.js";
 import { logAudit } from "../audit.js";
+import type { FairygitMotherDb } from "../db/client.js";
+import { bounties, consensusResults, submissions } from "../db/schema.js";
 
 export interface PrSubmission {
 	prNumber: number;
@@ -11,8 +11,8 @@ export interface PrSubmission {
 }
 
 export function buildPrBody(
-	bountyOwner: string,
-	bountyRepo: string,
+	_bountyOwner: string,
+	_bountyRepo: string,
 	issueNumber: number,
 	explanation: string,
 	solverNodeId: string,
@@ -49,18 +49,10 @@ export async function submitPr(
 		.get();
 	if (!consensus || consensus.outcome !== "approved") return null;
 
-	const submission = db
-		.select()
-		.from(submissions)
-		.where(eq(submissions.id, submissionId))
-		.get();
+	const submission = db.select().from(submissions).where(eq(submissions.id, submissionId)).get();
 	if (!submission) return null;
 
-	const bounty = db
-		.select()
-		.from(bounties)
-		.where(eq(bounties.id, submission.bountyId))
-		.get();
+	const bounty = db.select().from(bounties).where(eq(bounties.id, submission.bountyId)).get();
 	if (!bounty) return null;
 
 	const branchName = `fairygitmother/fix-${bounty.issueNumber}-${submission.id.slice(0, 8)}`;

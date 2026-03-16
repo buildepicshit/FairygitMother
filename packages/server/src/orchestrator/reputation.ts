@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { FairygitMotherDb } from "../db/client.js";
 import { nodes } from "../db/schema.js";
 
@@ -38,10 +38,7 @@ export function applyDailyDecay(db: FairygitMotherDb) {
 		const decayed = node.reputationScore - diff * DAILY_DECAY_RATE;
 		const clamped = Math.min(MAX_SCORE, Math.max(MIN_SCORE, decayed));
 
-		db.update(nodes)
-			.set({ reputationScore: clamped })
-			.where(eq(nodes.id, node.id))
-			.run();
+		db.update(nodes).set({ reputationScore: clamped }).where(eq(nodes.id, node.id)).run();
 	}
 }
 

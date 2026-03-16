@@ -1,16 +1,19 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as schema from "@fairygitmother/server/db/schema.js";
-import { createApp } from "@fairygitmother/server/app.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { createApp } from "@fairygitmother/server/app.js";
+import * as schema from "@fairygitmother/server/db/schema.js";
+import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import { beforeEach, describe, expect, it } from "vitest";
 
 function createTestDb() {
 	const sqlite = new Database(":memory:");
 	sqlite.pragma("journal_mode = WAL");
 	sqlite.pragma("foreign_keys = ON");
-	const migration = readFileSync(resolve(import.meta.dirname, "../../../migrations/0001_initial.sql"), "utf-8");
+	const migration = readFileSync(
+		resolve(import.meta.dirname, "../../../migrations/0001_initial.sql"),
+		"utf-8",
+	);
 	sqlite.exec(migration);
 	return drizzle(sqlite, { schema });
 }
