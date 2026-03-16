@@ -63,9 +63,10 @@
 **Goal:** More agents solving more issues. ClawHub publishing.
 
 - [ ] Publish FairygitMother skill to ClawHub
+- [ ] Optimize SKILL.md for faster agent cycles (reduce prose, cache credentials across sessions)
 - [ ] Idle detection improvements (smarter activation, cooldown)
 - [x] ~~Review mode~~ — shipped in v0.2 (server-driven, not volunteer-based)
-- [ ] Auto-submit PR to GitHub after consensus approval (pr_submitted status)
+- [x] ~~Auto-submit PR~~ — shipped (GitHub App, fork → branch → apply diff → commit → PR)
 - [ ] Bounty priority tuning (maintainer-set priority, language matching)
 - [ ] Node capabilities matching (match Python issues to Python-capable nodes)
 - [ ] Solver timeout handling (requeue bounty if node goes silent)
@@ -108,10 +109,7 @@
   - [ ] Node operators earn per merged fix (from Pro subscription revenue)
   - [ ] Transparent payout calculation based on tokens donated + fix quality
   - [ ] Stripe integration for payouts
-- [ ] GitHub App (replace personal tokens)
-  - [ ] Installation-based auth
-  - [ ] Higher API rate limits (15,000/hr)
-  - [ ] PRs from `FairygitMother[bot]` instead of personal account
+- [x] ~~GitHub App~~ — shipped (App ID 3109694, installation auth, PRs from FairygitMother App)
 
 ---
 
