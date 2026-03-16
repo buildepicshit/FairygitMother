@@ -7,6 +7,7 @@ import { scanDiff } from "../consensus/safety.js";
 import type { FairygitMotherDb } from "../db/client.js";
 import { bounties, repos, submissions } from "../db/schema.js";
 import { dequeueForNode, markAssigned } from "../orchestrator/queue.js";
+import { findNodeByApiKey } from "../orchestrator/registry.js";
 import { emitEvent } from "./feed.js";
 
 // ── Submission-first: repos/maintainers submit issues to us ────
@@ -137,8 +138,21 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 	});
 
 	// POST /api/v1/bounties/claim — node claims next available bounty
+	// Accepts auth via Bearer token OR apiKey in request body
 	app.post("/claim", async (c) => {
-		const nodeId = c.get("nodeId") as string;
+		let nodeId = c.get("nodeId") as string | undefined;
+		if (!nodeId) {
+			const body = await c.req.json().catch(() => ({}));
+			if (body.apiKey) {
+				const node = findNodeByApiKey(db, body.apiKey);
+				if (node) nodeId = node.id;
+			} else if (body.nodeId) {
+				nodeId = body.nodeId;
+			}
+			if (!nodeId) {
+				return c.json({ error: "Provide Authorization header, apiKey, or nodeId in body" }, 401);
+			}
+		}
 
 		const bounty = dequeueForNode(db, nodeId);
 		if (!bounty) {

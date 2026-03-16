@@ -9,7 +9,6 @@ import { feedRouteHandler } from "./api/websocket.js";
 import { createDashboardRoutes } from "./dashboard/views.js";
 import type { FairygitMotherDb } from "./db/client.js";
 import { authMiddleware } from "./middleware/auth.js";
-import { createRateLimiter } from "./middleware/ratelimit.js";
 
 export function createApp(db: FairygitMotherDb) {
 	const app = new Hono();
@@ -17,7 +16,6 @@ export function createApp(db: FairygitMotherDb) {
 	// Middleware
 	app.use("*", logger());
 	app.use("/api/*", cors());
-	app.use("/api/*", createRateLimiter());
 	app.use("/api/*", authMiddleware(db));
 
 	// Health check

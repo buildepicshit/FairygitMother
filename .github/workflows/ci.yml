@@ -71,6 +71,6 @@ jobs:
             --resource-group fairygitmother-rg \
             --image ${{ secrets.ACR_LOGIN_SERVER }}/fairygitmother:${{ github.sha }} \
             --set-env-vars \
-              FAIRYGITMOTHER_DB_PATH=/data/fairygitmother.db \
+              FAIRYGITMOTHER_DB_PATH=/tmp/fairygitmother.db \
               FAIRYGITMOTHER_HOST=0.0.0.0 \
               FAIRYGITMOTHER_PORT=3000

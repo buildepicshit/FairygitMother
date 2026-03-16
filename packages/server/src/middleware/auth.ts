@@ -11,7 +11,8 @@ const PUBLIC_PATHS = new Set([
 	"/api/v1/health",
 	"/api/v1/stats",
 	"/api/v1/feed",
-	"/api/v1/bounties", // Maintainers submit bounties without being a node
+	"/api/v1/bounties",
+	"/api/v1/bounties/claim",
 ]);
 
 function isPublicPath(pathname: string): boolean {
