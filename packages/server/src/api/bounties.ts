@@ -29,11 +29,7 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 	// GET /api/v1/bounties/:id/submissions — view submissions for a bounty
 	app.get("/:id/submissions", (c) => {
 		const bountyId = c.req.param("id");
-		const subs = db
-			.select()
-			.from(submissions)
-			.where(eq(submissions.bountyId, bountyId))
-			.all();
+		const subs = db.select().from(submissions).where(eq(submissions.bountyId, bountyId)).all();
 		return c.json({ submissions: subs });
 	});
 
