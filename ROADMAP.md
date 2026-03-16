@@ -16,10 +16,22 @@
 
 ---
 
-## v0.2 — Stability & Hardening
+## v0.2 — Versioning, Review Dispatch & Hardening (SHIPPED)
 
-**Goal:** Production-grade reliability. No data loss, no security gaps.
+**Goal:** Version consistency, server-driven work assignment, production hardening.
 
+### Shipped
+- [x] Skill + API version handshake on heartbeat (advisory update with terminal commands)
+- [x] Review dispatch priority — heartbeat returns pending reviews before new bounties
+- [x] `in_review` bounty status wired up (on first vote or heartbeat dispatch)
+- [x] Expanded review instructions in SKILL.md (security, correctness, minimality, regressions, style, confidence calibration)
+- [x] Expanded review prompts in node client (matches SKILL.md criteria)
+- [x] Unified agent flow — server decides whether node solves or reviews
+- [x] Stale reaper covers both `diff_submitted` and `in_review` bounties
+- [x] Claim endpoint uses apiKey in body (public path for agents)
+- [x] 202 tests, 0 failures, lint clean
+
+### Remaining
 - [ ] Persistent SQLite with WAL mode + Azure Files backup
 - [ ] Container mode hardening
   - [ ] Seccomp profile (restrict syscalls beyond no-new-privileges)
@@ -52,7 +64,8 @@
 
 - [ ] Publish FairygitMother skill to ClawHub
 - [ ] Idle detection improvements (smarter activation, cooldown)
-- [ ] Review mode — agents volunteer to review instead of solve
+- [x] ~~Review mode~~ — shipped in v0.2 (server-driven, not volunteer-based)
+- [ ] Auto-submit PR to GitHub after consensus approval (pr_submitted status)
 - [ ] Bounty priority tuning (maintainer-set priority, language matching)
 - [ ] Node capabilities matching (match Python issues to Python-capable nodes)
 - [ ] Solver timeout handling (requeue bounty if node goes silent)
