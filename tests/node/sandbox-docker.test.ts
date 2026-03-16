@@ -101,16 +101,15 @@ describe.skipIf(!dockerAvailable)("FairygitMother sandbox — Docker integration
 		expect(networkNames).toHaveLength(0);
 
 		// Double-check: trying to reach the outside should fail.
-		// wget is not installed in the Alpine image (only git), so the
-		// command itself will error out — either "not found" or "network
-		// unreachable". Both are acceptable proof of isolation.
-		await expect(
-			containerExec(
-				cloneResult?.containerId,
-				["sh", "-c", "wget -q --spider http://example.com 2>&1 || echo BLOCKED"],
-				10_000,
-			),
-		).rejects.toThrow(); // wget not found → exec error (non-zero exit)
+		// Network is disconnected, so DNS resolution will fail.
+		const netResult = await containerExec(
+			cloneResult!.containerId,
+			["sh", "-c", "wget -q --spider http://example.com 2>&1 || echo BLOCKED"],
+			10_000,
+		);
+		// Either wget fails (bad address / not found) or we see BLOCKED
+		const output = netResult.stdout + netResult.stderr;
+		expect(output).toMatch(/bad address|BLOCKED|not found|network unreachable/i);
 	}, 15_000);
 
 	// ── 4. List files inside container ──────────────────────────

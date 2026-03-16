@@ -61,6 +61,7 @@ export async function ensureSandboxImage(): Promise<void> {
 FROM alpine:3.20
 RUN apk add --no-cache git
 RUN adduser -D -h /workspace fairygitmother
+RUN mkdir -p /output && chown fairygitmother:fairygitmother /output
 USER fairygitmother
 WORKDIR /workspace
 `;
