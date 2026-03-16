@@ -10,10 +10,6 @@ jobs:
   ci:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [22]
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,10 +17,10 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies
@@ -41,3 +37,36 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  deploy:
+    needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build and push to ACR
+        uses: azure/docker-login@v2
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - run: |
+          docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/fairygitmother:${{ github.sha }} -t ${{ secrets.ACR_LOGIN_SERVER }}/fairygitmother:latest .
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/fairygitmother:${{ github.sha }}
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/fairygitmother:latest
+
+      - name: Deploy to Container Apps
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          containerAppName: fairygitmother
+          resourceGroup: fairygitmother-rg
+          imageToDeploy: ${{ secrets.ACR_LOGIN_SERVER }}/fairygitmother:${{ github.sha }}
