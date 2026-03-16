@@ -1,9 +1,10 @@
 import { existsSync, unlinkSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadConfig } from "@fairygitmother/core";
+import { createGitHubAppClient, createGitHubClient, loadConfig } from "@fairygitmother/core";
 import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
+import type { PrSubmitContext } from "./consensus/aggregator.js";
 import { getDb } from "./db/client.js";
 import { runMigrations } from "./db/migrate.js";
 import { requeueStaleBounties, requeueStaleDiffs } from "./orchestrator/queue.js";
@@ -30,7 +31,37 @@ runMigrations(config.dbPath, migrationsDir);
 
 // Initialize database and app
 const db = getDb(config.dbPath);
-const app = createApp(db);
+
+// Set up PR auto-submit context if configured
+let prContext: PrSubmitContext | undefined;
+if (config.autoSubmitPrs && config.forkOwner) {
+	let github: import("@fairygitmother/core").GitHubClient | undefined;
+	if (config.githubAppId && config.githubAppPrivateKey && config.githubAppInstallationId) {
+		github = await createGitHubAppClient({
+			appId: config.githubAppId,
+			privateKey: config.githubAppPrivateKey,
+			installationId: config.githubAppInstallationId,
+		});
+		console.log(
+			`[fairygitmother] PR auto-submit enabled via GitHub App (fork owner: ${config.forkOwner})`,
+		);
+	} else if (config.githubToken) {
+		github = createGitHubClient(config.githubToken);
+		console.log(
+			`[fairygitmother] PR auto-submit enabled via token (fork owner: ${config.forkOwner})`,
+		);
+	}
+	if (github) {
+		prContext = { github, forkOwner: config.forkOwner };
+	}
+}
+if (!prContext) {
+	console.log(
+		"[fairygitmother] PR auto-submit disabled (set FAIRYGITMOTHER_AUTO_SUBMIT_PRS=true + auth)",
+	);
+}
+
+const app = createApp(db, prContext);
 
 // Schedule background tasks
 scheduleTask(

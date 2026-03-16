@@ -2,11 +2,15 @@ import { SubmitVoteRequestSchema, generateId } from "@fairygitmother/core";
 import { eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { logAudit } from "../audit.js";
-import { evaluateConsensus, recordConsensus } from "../consensus/aggregator.js";
+import {
+	type PrSubmitContext,
+	evaluateConsensus,
+	recordConsensus,
+} from "../consensus/aggregator.js";
 import type { FairygitMotherDb } from "../db/client.js";
 import { bounties, nodes, submissions, votes } from "../db/schema.js";
 
-export function createReviewRoutes(db: FairygitMotherDb) {
+export function createReviewRoutes(db: FairygitMotherDb, prContext?: PrSubmitContext) {
 	const app = new Hono();
 
 	// POST /api/v1/reviews/:submissionId/vote
@@ -72,7 +76,7 @@ export function createReviewRoutes(db: FairygitMotherDb) {
 		// Check if consensus is reached
 		const decision = evaluateConsensus(db, submissionId);
 		if (decision !== "pending") {
-			recordConsensus(db, submissionId, decision);
+			recordConsensus(db, submissionId, decision, prContext);
 		}
 
 		return c.json({ accepted: true, consensusStatus: decision });
