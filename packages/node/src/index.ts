@@ -40,4 +40,11 @@ export {
 	isRepoTrusted,
 	type SolverModeDecision,
 } from "./solver-mode.js";
+export {
+	solveBounty,
+	reviewFix,
+	type ClaudeSolverOptions,
+	type SolveResult,
+	type ReviewResult,
+} from "./claude-solver.js";
 export { createIdleDetector, type IdleDetector } from "./idle.js";

@@ -13,6 +13,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@anthropic-ai/sdk": "^0.78.0",
 		"@fairygitmother/core": "workspace:*"
 	},
 	"devDependencies": {
