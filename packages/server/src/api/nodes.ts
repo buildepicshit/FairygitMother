@@ -1,8 +1,9 @@
 import {
+	CURRENT_API_VERSION,
 	CURRENT_SKILL_VERSION,
 	HeartbeatRequestSchema,
 	RegisterNodeRequestSchema,
-	type SkillUpdateInfo,
+	type VersionUpdateInfo,
 } from "@fairygitmother/core";
 import { and, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
@@ -11,7 +12,7 @@ import { bounties, submissions, votes } from "../db/schema.js";
 import { dequeueForNode, markAssigned } from "../orchestrator/queue.js";
 import { heartbeat, registerNode, removeNode } from "../orchestrator/registry.js";
 
-function buildSkillUpdate(clientVersion: string | undefined): SkillUpdateInfo | null {
+function buildSkillUpdate(clientVersion: string | undefined): VersionUpdateInfo | null {
 	if (clientVersion === CURRENT_SKILL_VERSION) return null;
 	return {
 		updateAvailable: true,
@@ -23,6 +24,23 @@ function buildSkillUpdate(clientVersion: string | undefined): SkillUpdateInfo | 
 			openclaw: "openclaw install fairygitmother@latest",
 			manual:
 				"https://github.com/buildepicshit/FairygitMother/blob/main/packages/skill-openclaw/SKILL.md",
+		},
+		changelog: "https://github.com/buildepicshit/FairygitMother/releases",
+	};
+}
+
+function buildApiUpdate(clientVersion: string | undefined): VersionUpdateInfo | null {
+	if (clientVersion === CURRENT_API_VERSION) return null;
+	return {
+		updateAvailable: true,
+		currentVersion: clientVersion ?? "unknown",
+		latestVersion: CURRENT_API_VERSION,
+		updateInstructions: {
+			npm: "npm install @fairygitmother/core@latest @fairygitmother/node@latest",
+			pnpm: "pnpm add @fairygitmother/core@latest @fairygitmother/node@latest",
+			openclaw: "openclaw install fairygitmother@latest",
+			manual:
+				"https://github.com/buildepicshit/FairygitMother/blob/main/packages/core/src/protocol.ts",
 		},
 		changelog: "https://github.com/buildepicshit/FairygitMother/releases",
 	};
@@ -130,12 +148,14 @@ export function createNodeRoutes(db: FairygitMotherDb) {
 		}
 
 		const skillUpdate = buildSkillUpdate(parsed.data.skillVersion);
+		const apiUpdate = buildApiUpdate(parsed.data.apiVersion);
 
 		return c.json({
 			acknowledged: true,
 			pendingBounty,
 			pendingReview,
 			skillUpdate,
+			apiUpdate,
 		});
 	});
 

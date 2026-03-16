@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { CURRENT_SKILL_VERSION, generateApiKey, generateId } from "@fairygitmother/core";
+import {
+	CURRENT_API_VERSION,
+	CURRENT_SKILL_VERSION,
+	generateApiKey,
+	generateId,
+} from "@fairygitmother/core";
 import { createApp } from "@fairygitmother/server/app.js";
 import * as schema from "@fairygitmother/server/db/schema.js";
 import Database from "better-sqlite3";
@@ -114,8 +119,8 @@ describe("nodes API", () => {
 		});
 	});
 
-	describe("skill version handshake", () => {
-		it("returns no skillUpdate when version matches", async () => {
+	describe("version handshake", () => {
+		it("returns no updates when both versions match", async () => {
 			const { nodeId, apiKey } = await registerNode(app);
 
 			const res = await app.request(`/api/v1/nodes/${nodeId}/heartbeat`, {
@@ -125,14 +130,16 @@ describe("nodes API", () => {
 					status: "idle",
 					tokensUsedSinceLastHeartbeat: 0,
 					skillVersion: CURRENT_SKILL_VERSION,
+					apiVersion: CURRENT_API_VERSION,
 				}),
 			});
 
 			const body = await res.json();
 			expect(body.skillUpdate).toBeNull();
+			expect(body.apiUpdate).toBeNull();
 		});
 
-		it("returns skillUpdate when version is outdated", async () => {
+		it("returns skillUpdate when skill version is outdated", async () => {
 			const { nodeId, apiKey } = await registerNode(app);
 
 			const res = await app.request(`/api/v1/nodes/${nodeId}/heartbeat`, {
@@ -142,6 +149,7 @@ describe("nodes API", () => {
 					status: "idle",
 					tokensUsedSinceLastHeartbeat: 0,
 					skillVersion: "0.1.0",
+					apiVersion: CURRENT_API_VERSION,
 				}),
 			});
 
@@ -154,9 +162,33 @@ describe("nodes API", () => {
 			expect(body.skillUpdate.updateInstructions.pnpm).toContain("pnpm add");
 			expect(body.skillUpdate.updateInstructions.openclaw).toContain("openclaw install");
 			expect(body.skillUpdate.changelog).toContain("github.com");
+			expect(body.apiUpdate).toBeNull();
 		});
 
-		it("returns skillUpdate when version is missing", async () => {
+		it("returns apiUpdate when API version is outdated", async () => {
+			const { nodeId, apiKey } = await registerNode(app);
+
+			const res = await app.request(`/api/v1/nodes/${nodeId}/heartbeat`, {
+				method: "POST",
+				headers: authHeaders(apiKey),
+				body: JSON.stringify({
+					status: "idle",
+					tokensUsedSinceLastHeartbeat: 0,
+					skillVersion: CURRENT_SKILL_VERSION,
+					apiVersion: "0.0.1",
+				}),
+			});
+
+			const body = await res.json();
+			expect(body.skillUpdate).toBeNull();
+			expect(body.apiUpdate).not.toBeNull();
+			expect(body.apiUpdate.updateAvailable).toBe(true);
+			expect(body.apiUpdate.currentVersion).toBe("0.0.1");
+			expect(body.apiUpdate.latestVersion).toBe(CURRENT_API_VERSION);
+			expect(body.apiUpdate.updateInstructions.npm).toContain("@fairygitmother/core");
+		});
+
+		it("returns both updates when both versions missing", async () => {
 			const { nodeId, apiKey } = await registerNode(app);
 
 			const res = await app.request(`/api/v1/nodes/${nodeId}/heartbeat`, {
@@ -171,7 +203,8 @@ describe("nodes API", () => {
 			const body = await res.json();
 			expect(body.skillUpdate).not.toBeNull();
 			expect(body.skillUpdate.currentVersion).toBe("unknown");
-			expect(body.skillUpdate.latestVersion).toBe(CURRENT_SKILL_VERSION);
+			expect(body.apiUpdate).not.toBeNull();
+			expect(body.apiUpdate.currentVersion).toBe("unknown");
 		});
 	});
 

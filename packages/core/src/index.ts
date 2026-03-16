@@ -29,7 +29,8 @@ export {
 
 export {
 	CURRENT_SKILL_VERSION,
-	type SkillUpdateInfo,
+	CURRENT_API_VERSION,
+	type VersionUpdateInfo,
 	type RegisterNodeRequest,
 	RegisterNodeRequestSchema,
 	type RegisterNodeResponse,
