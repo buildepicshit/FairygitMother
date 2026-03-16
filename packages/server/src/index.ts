@@ -1,3 +1,4 @@
+import { existsSync, unlinkSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "@fairygitmother/core";
@@ -12,6 +13,17 @@ import { scheduleTask, stopAll } from "./orchestrator/scheduler.js";
 const config = loadConfig();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = resolve(__dirname, "../../../migrations");
+
+// Clean up stale WAL/SHM files from previous container (Azure Files doesn't handle WAL well)
+for (const suffix of ["-wal", "-shm"]) {
+	const path = `${config.dbPath}${suffix}`;
+	if (existsSync(path)) {
+		try {
+			unlinkSync(path);
+			console.log(`[fairygitmother] Removed stale ${suffix} file`);
+		} catch {}
+	}
+}
 
 // Run migrations
 runMigrations(config.dbPath, migrationsDir);

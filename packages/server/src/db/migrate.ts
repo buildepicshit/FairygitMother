@@ -4,7 +4,7 @@ import Database from "better-sqlite3";
 
 export function runMigrations(dbPath: string, migrationsDir: string) {
 	const db = new Database(dbPath);
-	db.pragma("journal_mode = WAL");
+	db.pragma("journal_mode = DELETE");
 	db.pragma("busy_timeout = 5000");
 	db.pragma("foreign_keys = ON");
 
