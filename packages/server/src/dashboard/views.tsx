@@ -1,6 +1,6 @@
 import { desc } from "drizzle-orm";
 import { Hono } from "hono";
-import { html } from "hono/html";
+import { html, raw } from "hono/html";
 import { getGridStats } from "../api/stats.js";
 import type { FairygitMotherDb } from "../db/client.js";
 import { bounties, consensusResults, nodes } from "../db/schema.js";
@@ -130,7 +130,7 @@ export function createDashboardRoutes(db: FairygitMotherDb) {
 				<thead>
 					<tr><th>Issue</th><th>Title</th><th>Language</th><th>Status</th><th>Complexity</th></tr>
 				</thead>
-				<tbody>${rows}</tbody>
+				<tbody>${raw(rows)}</tbody>
 			</table>`;
 
 		return c.html(layout("Bounties", content));
@@ -166,7 +166,7 @@ export function createDashboardRoutes(db: FairygitMotherDb) {
 				<thead>
 					<tr><th>#</th><th>Node</th><th>Backend</th><th>PRs Merged</th><th>Tokens</th><th>Rep</th><th>Status</th></tr>
 				</thead>
-				<tbody>${rows}</tbody>
+				<tbody>${raw(rows)}</tbody>
 			</table>`;
 
 		return c.html(layout("Leaderboard", content));
@@ -772,7 +772,7 @@ excludedPaths:
 
 		const content = html`
 			<h1>PR Feed</h1>
-			<div class="feed">${rows || "<p>No activity yet.</p>"}</div>`;
+			<div class="feed">${raw(rows || "<p>No activity yet.</p>")}</div>`;
 
 		return c.html(layout("Feed", content));
 	});
