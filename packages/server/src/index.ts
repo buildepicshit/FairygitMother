@@ -5,8 +5,8 @@ import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
 import { getDb } from "./db/client.js";
 import { runMigrations } from "./db/migrate.js";
-import { pruneStaleNodes } from "./orchestrator/registry.js";
 import { requeueStaleBounties, requeueStaleDiffs } from "./orchestrator/queue.js";
+import { pruneStaleNodes } from "./orchestrator/registry.js";
 import { scheduleTask, stopAll } from "./orchestrator/scheduler.js";
 
 const config = loadConfig();

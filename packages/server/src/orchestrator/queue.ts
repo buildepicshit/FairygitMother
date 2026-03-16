@@ -104,12 +104,7 @@ export function requeueStaleBounties(db: FairygitMotherDb, staleAfterMs: number)
 	const stale = db
 		.select()
 		.from(bounties)
-		.where(
-			and(
-				eq(bounties.status, "assigned"),
-				sql`${bounties.updatedAt} < ${cutoff}`,
-			),
-		)
+		.where(and(eq(bounties.status, "assigned"), sql`${bounties.updatedAt} < ${cutoff}`))
 		.all();
 
 	for (const bounty of stale) {
@@ -124,12 +119,7 @@ export function requeueStaleDiffs(db: FairygitMotherDb, staleAfterMs: number): n
 	const stale = db
 		.select()
 		.from(bounties)
-		.where(
-			and(
-				eq(bounties.status, "diff_submitted"),
-				sql`${bounties.updatedAt} < ${cutoff}`,
-			),
-		)
+		.where(and(eq(bounties.status, "diff_submitted"), sql`${bounties.updatedAt} < ${cutoff}`))
 		.all();
 
 	for (const bounty of stale) {
