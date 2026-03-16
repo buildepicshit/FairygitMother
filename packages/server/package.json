@@ -15,16 +15,15 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@hono/node-server": "^1.19.11",
 		"@fairygitmother/core": "workspace:*",
-		"better-sqlite3": "^11.0.0",
+		"@hono/node-server": "^1.19.11",
 		"drizzle-orm": "^0.38.0",
 		"hono": "^4.7.0",
 		"octokit": "^4.1.0",
+		"postgres": "^3.4.8",
 		"zod": "^3.24.0"
 	},
 	"devDependencies": {
-		"@types/better-sqlite3": "^7.6.0",
 		"drizzle-kit": "^0.30.0",
 		"tsup": "^8.3.0",
 		"tsx": "^4.19.0",

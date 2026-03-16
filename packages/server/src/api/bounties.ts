@@ -138,7 +138,19 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 
 	// POST /api/v1/bounties/claim — node claims next available bounty
 	app.post("/claim", async (c) => {
-		const nodeId = c.get("nodeId") as string;
+		// Support both Bearer auth and body-based auth (for agents that can't chain headers)
+		let nodeId = c.get("nodeId") as string | undefined;
+		if (!nodeId) {
+			const body = await c.req.json().catch(() => ({}));
+			if (body.apiKey) {
+				const { findNodeByApiKey } = await import("../orchestrator/registry.js");
+				const node = findNodeByApiKey(db, body.apiKey);
+				if (node) nodeId = node.id;
+			}
+			if (!nodeId) {
+				return c.json({ error: "Provide Authorization header or apiKey in body" }, 401);
+			}
+		}
 
 		const bounty = dequeueForNode(db, nodeId);
 		if (!bounty) {

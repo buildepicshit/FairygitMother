@@ -1,4 +1,3 @@
-import { existsSync, unlinkSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "@fairygitmother/core";
@@ -14,22 +13,11 @@ const config = loadConfig();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = resolve(__dirname, "../../../migrations");
 
-// Clean up stale WAL/SHM files from previous container (Azure Files doesn't handle WAL well)
-for (const suffix of ["-wal", "-shm"]) {
-	const path = `${config.dbPath}${suffix}`;
-	if (existsSync(path)) {
-		try {
-			unlinkSync(path);
-			console.log(`[fairygitmother] Removed stale ${suffix} file`);
-		} catch {}
-	}
-}
-
 // Run migrations
-runMigrations(config.dbPath, migrationsDir);
+await runMigrations(config.databaseUrl, migrationsDir);
 
 // Initialize database and app
-const db = getDb(config.dbPath);
+const db = getDb(config.databaseUrl);
 const app = createApp(db);
 
 // Schedule background tasks
@@ -42,7 +30,6 @@ scheduleTask(
 	60_000,
 );
 
-// Requeue bounties stuck in "assigned" for >10 minutes (agent went silent)
 scheduleTask(
 	"requeue-stale-bounties",
 	async () => {
@@ -52,7 +39,6 @@ scheduleTask(
 	120_000,
 );
 
-// Requeue bounties stuck in "diff_submitted" for >30 minutes (no reviewers available)
 scheduleTask(
 	"requeue-stale-diffs",
 	async () => {

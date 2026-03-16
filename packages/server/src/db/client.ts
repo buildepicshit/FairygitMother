@@ -1,25 +1,22 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import * as schema from "./schema.js";
 
 let _db: ReturnType<typeof drizzle> | null = null;
-let _sqlite: Database.Database | null = null;
+let _sql: ReturnType<typeof postgres> | null = null;
 
-export function getDb(dbPath = "fairygitmother.db") {
+export function getDb(connectionString: string) {
 	if (!_db) {
-		_sqlite = new Database(dbPath);
-		_sqlite.pragma("journal_mode = DELETE");
-		_sqlite.pragma("busy_timeout = 5000");
-		_sqlite.pragma("foreign_keys = ON");
-		_db = drizzle(_sqlite, { schema });
+		_sql = postgres(connectionString, { max: 10 });
+		_db = drizzle(_sql, { schema });
 	}
 	return _db;
 }
 
-export function closeDb() {
-	if (_sqlite) {
-		_sqlite.close();
-		_sqlite = null;
+export async function closeDb() {
+	if (_sql) {
+		await _sql.end();
+		_sql = null;
 		_db = null;
 	}
 }
