@@ -1,10 +1,11 @@
-import { generateId } from "@fairygitmother/core";
+import { type GitHubClient, generateId } from "@fairygitmother/core";
 import { eq, sql } from "drizzle-orm";
 import { emitEvent } from "../api/feed.js";
 import { logAudit } from "../audit.js";
 import type { FairygitMotherDb } from "../db/client.js";
 import { bounties, consensusResults, nodes, submissions, votes } from "../db/schema.js";
 import { applyReputationEvent, getConsensusRequirement } from "../orchestrator/reputation.js";
+import { submitPr } from "./submitter.js";
 
 export type ConsensusDecision = "approved" | "rejected" | "pending" | "timeout";
 
@@ -34,10 +35,16 @@ export function evaluateConsensus(db: FairygitMotherDb, submissionId: string): C
 	return "pending";
 }
 
+export interface PrSubmitContext {
+	github: GitHubClient;
+	forkOwner: string;
+}
+
 export function recordConsensus(
 	db: FairygitMotherDb,
 	submissionId: string,
 	outcome: "approved" | "rejected" | "timeout",
+	prContext?: PrSubmitContext,
 ) {
 	const allVotes = db.select().from(votes).where(eq(votes.submissionId, submissionId)).all();
 
@@ -98,6 +105,17 @@ export function recordConsensus(
 			rejectCount: rejections,
 			totalVotes: allVotes.length,
 		});
+
+		// Auto-submit PR on approval (fire-and-forget, errors logged not thrown)
+		if (outcome === "approved" && prContext) {
+			submitPr(db, prContext.github, submissionId, prContext.forkOwner).catch((err) => {
+				console.error(`[consensus] Failed to auto-submit PR for ${submissionId}:`, err);
+				logAudit(db, "pr_submitted", submissionId, {
+					error: String(err),
+					bountyId: submission.bountyId,
+				});
+			});
+		}
 	}
 
 	return resultId;

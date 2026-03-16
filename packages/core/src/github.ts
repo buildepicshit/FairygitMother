@@ -1,4 +1,4 @@
-import { Octokit } from "octokit";
+import { App, Octokit } from "octokit";
 import type { RepoConfig } from "./models.js";
 
 export interface GitHubIssue {
@@ -22,15 +22,32 @@ export interface GitHubRepo {
 	created_at: string;
 }
 
+export interface GitHubAppAuth {
+	appId: string;
+	privateKey: string;
+	installationId: string;
+}
+
 export function createGitHubClient(token?: string): GitHubClient {
 	return new GitHubClient(token);
+}
+
+export async function createGitHubAppClient(auth: GitHubAppAuth): Promise<GitHubClient> {
+	const app = new App({
+		appId: auth.appId,
+		privateKey: auth.privateKey,
+	});
+	const octokit = (await app.getInstallationOctokit(
+		Number(auth.installationId),
+	)) as unknown as Octokit;
+	return new GitHubClient(undefined, octokit);
 }
 
 export class GitHubClient {
 	private octokit: Octokit;
 
-	constructor(token?: string) {
-		this.octokit = new Octokit({ auth: token });
+	constructor(token?: string, octokit?: Octokit) {
+		this.octokit = octokit ?? new Octokit({ auth: token });
 	}
 
 	async fetchIssue(owner: string, repo: string, issueNumber: number): Promise<GitHubIssue> {
@@ -99,6 +116,85 @@ export class GitHubClient {
 			body,
 		});
 		return { number: data.number, html_url: data.html_url };
+	}
+
+	// ── Git Data API (for programmatic commits) ─────────────────
+
+	async getRef(owner: string, repo: string, ref: string): Promise<string> {
+		const { data } = await this.octokit.rest.git.getRef({ owner, repo, ref });
+		return data.object.sha;
+	}
+
+	async getCommit(owner: string, repo: string, sha: string): Promise<{ treeSha: string }> {
+		const { data } = await this.octokit.rest.git.getCommit({ owner, repo, commit_sha: sha });
+		return { treeSha: data.tree.sha };
+	}
+
+	async getFileContent(owner: string, repo: string, path: string, ref?: string): Promise<string> {
+		const { data } = await this.octokit.rest.repos.getContent({
+			owner,
+			repo,
+			path,
+			...(ref ? { ref } : {}),
+		});
+		if ("content" in data && typeof data.content === "string") {
+			return Buffer.from(data.content, "base64").toString("utf-8");
+		}
+		throw new Error(`Cannot read file content for ${path}`);
+	}
+
+	async createBlob(owner: string, repo: string, content: string): Promise<string> {
+		const { data } = await this.octokit.rest.git.createBlob({
+			owner,
+			repo,
+			content,
+			encoding: "utf-8",
+		});
+		return data.sha;
+	}
+
+	async createTree(
+		owner: string,
+		repo: string,
+		baseTreeSha: string,
+		files: Array<{ path: string; content: string }>,
+	): Promise<string> {
+		const blobs = await Promise.all(
+			files.map(async (f) => ({
+				path: f.path,
+				mode: "100644" as const,
+				type: "blob" as const,
+				sha: await this.createBlob(owner, repo, f.content),
+			})),
+		);
+		const { data } = await this.octokit.rest.git.createTree({
+			owner,
+			repo,
+			base_tree: baseTreeSha,
+			tree: blobs,
+		});
+		return data.sha;
+	}
+
+	async createCommitOnRepo(
+		owner: string,
+		repo: string,
+		message: string,
+		treeSha: string,
+		parentShas: string[],
+	): Promise<string> {
+		const { data } = await this.octokit.rest.git.createCommit({
+			owner,
+			repo,
+			message,
+			tree: treeSha,
+			parents: parentShas,
+		});
+		return data.sha;
+	}
+
+	async createRefOnRepo(owner: string, repo: string, ref: string, sha: string): Promise<void> {
+		await this.octokit.rest.git.createRef({ owner, repo, ref, sha });
 	}
 
 	async checkFairygitMotherConfig(owner: string, repo: string): Promise<RepoConfig | null> {

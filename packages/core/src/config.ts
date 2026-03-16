@@ -36,6 +36,11 @@ export const FairygitMotherConfigSchema = z.object({
 	maxDiffLines: z.number().int().min(10).default(500),
 	maxDiffFiles: z.number().int().min(1).default(10),
 	maxRepoSizeMb: z.number().int().min(10).default(500),
+	forkOwner: z.string().optional(),
+	autoSubmitPrs: z.boolean().default(false),
+	githubAppId: z.string().optional(),
+	githubAppPrivateKey: z.string().optional(),
+	githubAppInstallationId: z.string().optional(),
 });
 export type FairygitMotherConfig = z.infer<typeof FairygitMotherConfigSchema>;
 
@@ -53,6 +58,11 @@ export function loadConfig(overrides: Partial<FairygitMotherConfig> = {}): Fairy
 		dbPath: env.FAIRYGITMOTHER_DB_PATH,
 		port: env.FAIRYGITMOTHER_PORT ? Number(env.FAIRYGITMOTHER_PORT) : undefined,
 		host: env.FAIRYGITMOTHER_HOST,
+		forkOwner: env.FAIRYGITMOTHER_FORK_OWNER,
+		autoSubmitPrs: env.FAIRYGITMOTHER_AUTO_SUBMIT_PRS === "true" ? true : undefined,
+		githubAppId: env.FAIRYGITMOTHER_GITHUB_APP_ID,
+		githubAppPrivateKey: env.FAIRYGITMOTHER_GITHUB_APP_PRIVATE_KEY,
+		githubAppInstallationId: env.FAIRYGITMOTHER_GITHUB_APP_INSTALLATION_ID,
 		...overrides,
 	};
 

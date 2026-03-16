@@ -59,6 +59,13 @@ export {
 	loadConfig,
 } from "./config.js";
 
-export { GitHubClient, createGitHubClient, type GitHubIssue, type GitHubRepo } from "./github.js";
+export {
+	GitHubClient,
+	createGitHubClient,
+	createGitHubAppClient,
+	type GitHubAppAuth,
+	type GitHubIssue,
+	type GitHubRepo,
+} from "./github.js";
 
 export { generateId, generateApiKey } from "./ids.js";
