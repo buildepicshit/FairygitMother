@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Rebuild better-sqlite3
+        run: pnpm rebuild better-sqlite3
+
       - name: Lint
         run: pnpm lint
 
@@ -68,6 +71,6 @@ jobs:
             --resource-group fairygitmother-rg \
             --image ${{ secrets.ACR_LOGIN_SERVER }}/fairygitmother:${{ github.sha }} \
             --set-env-vars \
-              DATABASE_URL=${{ secrets.DATABASE_URL }} \
+              FAIRYGITMOTHER_DB_PATH=/data/fairygitmother.db \
               FAIRYGITMOTHER_HOST=0.0.0.0 \
               FAIRYGITMOTHER_PORT=3000

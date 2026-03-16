@@ -1,26 +1,32 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import postgres from "postgres";
+import Database from "better-sqlite3";
 
-export async function runMigrations(connectionString: string, migrationsDir: string) {
-	const sql = postgres(connectionString, { max: 1 });
+export function runMigrations(dbPath: string, migrationsDir: string) {
+	const db = new Database(dbPath);
+	db.pragma("journal_mode = DELETE");
+	db.pragma("busy_timeout = 5000");
+	db.pragma("foreign_keys = ON");
 
-	await sql`
+	db.exec(`
 		CREATE TABLE IF NOT EXISTS schema_version (
 			version INTEGER PRIMARY KEY,
-			applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			applied_at TEXT NOT NULL DEFAULT (datetime('now'))
 		)
-	`;
+	`);
 
-	const rows = await sql`SELECT MAX(version) as v FROM schema_version`;
-	const version = rows[0]?.v ?? 0;
+	const currentVersion = db.prepare("SELECT MAX(version) as v FROM schema_version").get() as
+		| { v: number | null }
+		| undefined;
+	const version = currentVersion?.v ?? 0;
 
-	const migrationFile = join(migrationsDir, "0002_postgres.sql");
-	if (version < 2) {
-		const sqlContent = readFileSync(migrationFile, "utf-8");
-		await sql.unsafe(sqlContent);
-		await sql`INSERT INTO schema_version (version) VALUES (2)`;
+	// Read migration files in order
+	const migrationFile = join(migrationsDir, "0001_initial.sql");
+	if (version < 1) {
+		const sql = readFileSync(migrationFile, "utf-8");
+		db.exec(sql);
+		db.prepare("INSERT INTO schema_version (version) VALUES (?)").run(1);
 	}
 
-	await sql.end();
+	db.close();
 }

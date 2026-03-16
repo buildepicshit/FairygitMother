@@ -1,6 +1,7 @@
-FROM node:22-alpine
+FROM node:22-alpine AS base
 
 RUN corepack enable && corepack prepare pnpm@10.28.2 --activate
+RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
@@ -13,17 +14,32 @@ COPY packages/skill-openclaw/package.json packages/skill-openclaw/
 
 RUN pnpm install --frozen-lockfile
 
+# Rebuild native modules for Alpine
+RUN pnpm rebuild better-sqlite3
+
 # Copy source
 COPY tsconfig.base.json biome.json ./
 COPY packages/ packages/
 COPY migrations/ migrations/
 
+# ── Runtime ─────────────────────────────────────────────────────
+FROM node:22-alpine
+
+RUN corepack enable && corepack prepare pnpm@10.28.2 --activate
+
+WORKDIR /app
+
+COPY --from=base /app ./
+
+# Data directory for SQLite
+RUN mkdir -p /data
+ENV FAIRYGITMOTHER_DB_PATH=/data/fairygitmother.db
 ENV FAIRYGITMOTHER_HOST=0.0.0.0
 ENV FAIRYGITMOTHER_PORT=3000
 
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD wget -qO- http://localhost:3000/api/v1/health || exit 1
 
 CMD ["pnpm", "start"]

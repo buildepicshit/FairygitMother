@@ -1,68 +1,51 @@
-import {
-	boolean,
-	integer,
-	jsonb,
-	pgTable,
-	real,
-	serial,
-	text,
-	uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-export const repos = pgTable(
-	"repos",
-	{
-		id: serial("id").primaryKey(),
-		owner: text("owner").notNull(),
-		name: text("name").notNull(),
-		language: text("language"),
-		optInTier: text("opt_in_tier").notNull().default("label"),
-		blacklisted: boolean("blacklisted").notNull().default(false),
-		consecutiveRejects: integer("consecutive_rejects").notNull().default(0),
-		totalPrsMerged: integer("total_prs_merged").notNull().default(0),
-		totalPrsClosed: integer("total_prs_closed").notNull().default(0),
-		lastTrawledAt: text("last_trawled_at"),
-		createdAt: text("created_at")
-			.notNull()
-			.$defaultFn(() => new Date().toISOString()),
-	},
-	(table) => [uniqueIndex("repos_owner_name_idx").on(table.owner, table.name)],
-);
+export const repos = sqliteTable("repos", {
+	id: integer("id").primaryKey({ autoIncrement: true }),
+	owner: text("owner").notNull(),
+	name: text("name").notNull(),
+	language: text("language"),
+	optInTier: text("opt_in_tier").notNull().default("label"), // explicit | label | global
+	blacklisted: integer("blacklisted", { mode: "boolean" }).notNull().default(false),
+	consecutiveRejects: integer("consecutive_rejects").notNull().default(0),
+	totalPrsMerged: integer("total_prs_merged").notNull().default(0),
+	totalPrsClosed: integer("total_prs_closed").notNull().default(0),
+	lastTrawledAt: text("last_trawled_at"),
+	createdAt: text("created_at")
+		.notNull()
+		.$defaultFn(() => new Date().toISOString()),
+});
 
-export const bounties = pgTable(
-	"bounties",
-	{
-		id: text("id").primaryKey(),
-		repoId: integer("repo_id").references(() => repos.id),
-		owner: text("owner").notNull(),
-		repo: text("repo").notNull(),
-		issueNumber: integer("issue_number").notNull(),
-		issueTitle: text("issue_title").notNull(),
-		issueBody: text("issue_body").notNull(),
-		labels: jsonb("labels").$type<string[]>().notNull().default([]),
-		language: text("language"),
-		complexityEstimate: integer("complexity_estimate").notNull().default(3),
-		status: text("status").notNull().default("queued"),
-		assignedNodeId: text("assigned_node_id"),
-		priority: integer("priority").notNull().default(50),
-		retryCount: integer("retry_count").notNull().default(0),
-		createdAt: text("created_at")
-			.notNull()
-			.$defaultFn(() => new Date().toISOString()),
-		updatedAt: text("updated_at")
-			.notNull()
-			.$defaultFn(() => new Date().toISOString()),
-	},
-	(table) => [
-		uniqueIndex("bounties_owner_repo_issue_idx").on(table.owner, table.repo, table.issueNumber),
-	],
-);
+export const bounties = sqliteTable("bounties", {
+	id: text("id").primaryKey(),
+	repoId: integer("repo_id").references(() => repos.id),
+	owner: text("owner").notNull(),
+	repo: text("repo").notNull(),
+	issueNumber: integer("issue_number").notNull(),
+	issueTitle: text("issue_title").notNull(),
+	issueBody: text("issue_body").notNull(),
+	labels: text("labels", { mode: "json" }).$type<string[]>().notNull().default([]),
+	language: text("language"),
+	complexityEstimate: integer("complexity_estimate").notNull().default(3),
+	status: text("status").notNull().default("queued"),
+	assignedNodeId: text("assigned_node_id"),
+	priority: integer("priority").notNull().default(50),
+	retryCount: integer("retry_count").notNull().default(0),
+	createdAt: text("created_at")
+		.notNull()
+		.$defaultFn(() => new Date().toISOString()),
+	updatedAt: text("updated_at")
+		.notNull()
+		.$defaultFn(() => new Date().toISOString()),
+});
 
-export const nodes = pgTable("nodes", {
+export const nodes = sqliteTable("nodes", {
 	id: text("id").primaryKey(),
 	displayName: text("display_name"),
 	apiKey: text("api_key").notNull().unique(),
-	capabilities: jsonb("capabilities").$type<{ languages: string[]; tools: string[] }>().notNull(),
+	capabilities: text("capabilities", { mode: "json" })
+		.$type<{ languages: string[]; tools: string[] }>()
+		.notNull(),
 	solverBackend: text("solver_backend").notNull(),
 	status: text("status").notNull().default("idle"),
 	reputationScore: real("reputation_score").notNull().default(50),
@@ -77,7 +60,7 @@ export const nodes = pgTable("nodes", {
 		.$defaultFn(() => new Date().toISOString()),
 });
 
-export const submissions = pgTable("submissions", {
+export const submissions = sqliteTable("submissions", {
 	id: text("id").primaryKey(),
 	bountyId: text("bounty_id")
 		.notNull()
@@ -87,8 +70,8 @@ export const submissions = pgTable("submissions", {
 		.references(() => nodes.id),
 	diff: text("diff").notNull(),
 	explanation: text("explanation").notNull(),
-	filesChanged: jsonb("files_changed").$type<string[]>().notNull(),
-	testsPassed: boolean("tests_passed"),
+	filesChanged: text("files_changed", { mode: "json" }).$type<string[]>().notNull(),
+	testsPassed: integer("tests_passed", { mode: "boolean" }),
 	tokensUsed: integer("tokens_used"),
 	solverBackend: text("solver_backend").notNull(),
 	solveDurationMs: integer("solve_duration_ms").notNull(),
@@ -97,7 +80,7 @@ export const submissions = pgTable("submissions", {
 		.$defaultFn(() => new Date().toISOString()),
 });
 
-export const votes = pgTable("votes", {
+export const votes = sqliteTable("votes", {
 	id: text("id").primaryKey(),
 	submissionId: text("submission_id")
 		.notNull()
@@ -105,22 +88,22 @@ export const votes = pgTable("votes", {
 	reviewerNodeId: text("reviewer_node_id")
 		.notNull()
 		.references(() => nodes.id),
-	decision: text("decision").notNull(),
+	decision: text("decision").notNull(), // approve | reject
 	reasoning: text("reasoning").notNull(),
-	issuesFound: jsonb("issues_found").$type<string[]>().notNull().default([]),
+	issuesFound: text("issues_found", { mode: "json" }).$type<string[]>().notNull().default([]),
 	confidence: real("confidence").notNull(),
-	testsRun: boolean("tests_run").notNull().default(false),
+	testsRun: integer("tests_run", { mode: "boolean" }).notNull().default(false),
 	votedAt: text("voted_at")
 		.notNull()
 		.$defaultFn(() => new Date().toISOString()),
 });
 
-export const consensusResults = pgTable("consensus_results", {
+export const consensusResults = sqliteTable("consensus_results", {
 	id: text("id").primaryKey(),
 	submissionId: text("submission_id")
 		.notNull()
 		.references(() => submissions.id),
-	outcome: text("outcome").notNull(),
+	outcome: text("outcome").notNull(), // approved | rejected | timeout
 	approveCount: integer("approve_count").notNull().default(0),
 	rejectCount: integer("reject_count").notNull().default(0),
 	totalVotes: integer("total_votes").notNull().default(0),
@@ -130,11 +113,11 @@ export const consensusResults = pgTable("consensus_results", {
 		.$defaultFn(() => new Date().toISOString()),
 });
 
-export const auditLog = pgTable("audit_log", {
+export const auditLog = sqliteTable("audit_log", {
 	id: text("id").primaryKey(),
 	event: text("event").notNull(),
 	entityId: text("entity_id").notNull(),
-	details: jsonb("details").$type<Record<string, unknown>>(),
+	details: text("details", { mode: "json" }).$type<Record<string, unknown>>(),
 	timestamp: text("timestamp")
 		.notNull()
 		.$defaultFn(() => new Date().toISOString()),
