@@ -105,15 +105,10 @@ export async function safeClone(
 
 	// Host-side directory for extracting diffs (only diffs leave the container)
 	const hostDir = join(tmpdir(), `fgm_${randomBytes(6).toString("hex")}`);
-	await mkdir(hostDir, { recursive: true });
+	await mkdir(hostDir, { recursive: true, mode: 0o777 });
 
-	// Start container:
-	// - No network after clone (two-phase: clone with net, then disconnect)
-	// - Memory limited
-	// - CPU limited
-	// - Read-only root filesystem except /workspace
-	// - No privileged escalation
-	// - tmpfs for /tmp
+	// Start container with /output as a tmpfs (avoids host volume permission issues).
+	// Diffs are extracted by reading them via `docker exec` + stdout instead.
 	const containerId = await exec(
 		"docker",
 		[
@@ -126,8 +121,7 @@ export async function safeClone(
 			"--security-opt=no-new-privileges",
 			"--pids-limit=100",
 			"--tmpfs=/tmp:size=64m",
-			"-v",
-			`${hostDir}:/output:rw`,
+			"--tmpfs=/output:size=32m,uid=1000,gid=1000",
 			`${SANDBOX_IMAGE}:v${SANDBOX_IMAGE_VERSION}`,
 			"sleep",
 			"3600",
@@ -281,20 +275,15 @@ export async function listContainerFiles(
 }
 
 export async function exportDiff(result: SafeCloneResult): Promise<string> {
-	// Generate diff inside container, write to shared /output volume
-	await containerExec(
+	// Generate diff inside container and read via stdout.
+	// No host volume needed — diff content crosses the container boundary
+	// only through the exec pipe, same as generateDiff.
+	const r = await containerExec(
 		result.containerId,
-		["sh", "-c", "git -C /workspace/repo diff > /output/diff.patch"],
+		["git", "-C", "/workspace/repo", "diff"],
 		30_000,
 	);
-
-	// Read from host side
-	const diffPath = join(result.workDir, "diff.patch");
-	try {
-		return await readFile(diffPath, "utf-8");
-	} catch {
-		return "";
-	}
+	return r.stdout;
 }
 
 // ── Git config security scanning ───────────────────────────────
