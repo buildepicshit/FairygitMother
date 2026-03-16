@@ -3,6 +3,13 @@ import { eq, gte, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { FairygitMotherDb } from "../db/client.js";
 import { bounties, consensusResults, nodes, submissions } from "../db/schema.js";
+import type { PersistedStats } from "../stats-persistence.js";
+
+let statsBaseline: PersistedStats | null = null;
+
+export function setStatsBaseline(baseline: PersistedStats) {
+	statsBaseline = baseline;
+}
 
 export function createStatsRoutes(db: FairygitMotherDb) {
 	const app = new Hono();
@@ -78,14 +85,16 @@ export function getGridStats(db: FairygitMotherDb): GridStats {
 	const totalDecided =
 		db.select({ count: sql<number>`count(*)` }).from(consensusResults).get()?.count ?? 0;
 
+	const base = statsBaseline;
+
 	return {
 		activeNodes,
 		totalNodes,
 		queueDepth,
 		bountiesInProgress,
 		prsSubmittedToday: prsToday,
-		prsSubmittedAllTime: prsAllTime,
-		totalTokensDonated: tokenSum,
+		prsSubmittedAllTime: prsAllTime + (base?.totalPrsSubmitted ?? 0),
+		totalTokensDonated: tokenSum + (base?.totalTokensDonated ?? 0),
 		averageSolveTimeMs: Math.round(avgSolve),
 		mergeRate: totalDecided > 0 ? totalApproved / totalDecided : 0,
 	};

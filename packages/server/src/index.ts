@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGitHubAppClient, createGitHubClient, loadConfig } from "@fairygitmother/core";
 import { serve } from "@hono/node-server";
+import { setStatsBaseline } from "./api/stats.js";
 import { createApp } from "./app.js";
 import type { PrSubmitContext } from "./consensus/aggregator.js";
 import { getDb } from "./db/client.js";
@@ -10,6 +11,7 @@ import { runMigrations } from "./db/migrate.js";
 import { requeueStaleBounties, requeueStaleDiffs } from "./orchestrator/queue.js";
 import { pruneStaleNodes } from "./orchestrator/registry.js";
 import { scheduleTask, stopAll } from "./orchestrator/scheduler.js";
+import { loadPersistedStats, savePersistedStats } from "./stats-persistence.js";
 
 const config = loadConfig();
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -31,6 +33,11 @@ runMigrations(config.dbPath, migrationsDir);
 
 // Initialize database and app
 const db = getDb(config.dbPath);
+
+// Load persisted stats from Azure Files mount (survives deploys)
+const statsPath = resolve(dirname(config.dbPath), "persisted-stats.json");
+let persistedStats = loadPersistedStats(statsPath);
+setStatsBaseline(persistedStats);
 
 // Set up PR auto-submit context if configured
 let prContext: PrSubmitContext | undefined;
@@ -93,6 +100,16 @@ scheduleTask(
 	300_000,
 );
 
+// Persist stats every 5 minutes (survives deploys)
+scheduleTask(
+	"persist-stats",
+	async () => {
+		persistedStats = savePersistedStats(statsPath, db, persistedStats);
+		setStatsBaseline(persistedStats);
+	},
+	300_000,
+);
+
 // Start server
 const _server = serve({
 	fetch: app.fetch,
@@ -105,6 +122,7 @@ console.log(`[fairygitmother] Server running on http://${config.host}:${config.p
 // Graceful shutdown
 process.on("SIGINT", () => {
 	console.log("\n[fairygitmother] Shutting down...");
+	savePersistedStats(statsPath, db, persistedStats);
 	stopAll();
 	process.exit(0);
 });
