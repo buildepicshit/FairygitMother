@@ -26,6 +26,17 @@ const SubmitBountyRequestSchema = z.object({
 export function createBountyRoutes(db: FairygitMotherDb) {
 	const app = new Hono();
 
+	// GET /api/v1/bounties/:id/submissions — view submissions for a bounty
+	app.get("/:id/submissions", (c) => {
+		const bountyId = c.req.param("id");
+		const subs = db
+			.select()
+			.from(submissions)
+			.where(eq(submissions.bountyId, bountyId))
+			.all();
+		return c.json({ submissions: subs });
+	});
+
 	// GET /api/v1/bounties — list bounties with optional filters
 	app.get("/", (c) => {
 		const status = c.req.query("status");
