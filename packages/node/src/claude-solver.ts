@@ -9,8 +9,8 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { Bounty } from "@fairygitmother/core";
-import type { RepoFile, RepoTree, FileChange } from "./api-solver.js";
-import { buildApiSolvePrompt, buildApiReviewPrompt } from "./prompts.js";
+import type { FileChange, RepoFile, RepoTree } from "./api-solver.js";
+import { buildApiReviewPrompt, buildApiSolvePrompt } from "./prompts.js";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -57,8 +57,7 @@ export async function solveBounty(
 			messages: [{ role: "user", content: prompt }],
 		});
 
-		const tokensUsed =
-			(response.usage.input_tokens ?? 0) + (response.usage.output_tokens ?? 0);
+		const tokensUsed = (response.usage.input_tokens ?? 0) + (response.usage.output_tokens ?? 0);
 
 		// Extract text content
 		const text = response.content
@@ -117,8 +116,7 @@ export async function reviewFix(
 			messages: [{ role: "user", content: prompt }],
 		});
 
-		const tokensUsed =
-			(response.usage.input_tokens ?? 0) + (response.usage.output_tokens ?? 0);
+		const tokensUsed = (response.usage.input_tokens ?? 0) + (response.usage.output_tokens ?? 0);
 
 		const text = response.content
 			.filter((block): block is Anthropic.TextBlock => block.type === "text")
@@ -156,10 +154,7 @@ interface AgentResponse {
 	changes: FileChange[];
 }
 
-function parseAgentResponse(
-	text: string,
-	originalFiles: RepoFile[],
-): AgentResponse | null {
+function parseAgentResponse(text: string, originalFiles: RepoFile[]): AgentResponse | null {
 	const json = extractJson(text);
 	if (!json) return null;
 
@@ -186,9 +181,7 @@ function parseAgentResponse(
 	}
 }
 
-function parseReviewResponse(
-	text: string,
-): Omit<ReviewResult, "tokensUsed"> | null {
+function parseReviewResponse(text: string): Omit<ReviewResult, "tokensUsed"> | null {
 	const json = extractJson(text);
 	if (!json) return null;
 

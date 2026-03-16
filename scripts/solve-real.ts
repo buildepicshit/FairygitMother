@@ -20,11 +20,11 @@
  *   10. Reports consensus result
  */
 
-import { serve } from "@hono/node-server";
+import { randomBytes } from "node:crypto";
+import { existsSync, unlinkSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { existsSync, unlinkSync } from "node:fs";
-import { randomBytes } from "node:crypto";
+import { serve } from "@hono/node-server";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 
@@ -35,14 +35,11 @@ import { stopAll } from "../packages/server/src/orchestrator/scheduler.js";
 
 import {
 	FairygitMotherClient,
-	fetchRepoTree,
-	fetchFile,
 	fetchFiles,
+	fetchRepoTree,
 	generateUnifiedDiff,
-	solveBounty,
 	reviewFix,
-	type FileChange,
-	type RepoFile,
+	solveBounty,
 } from "../packages/node/src/index.js";
 
 import { GitHubClient } from "../packages/core/src/index.js";
@@ -148,11 +145,13 @@ async function main() {
 		const github = new GitHubClient(process.env.GITHUB_TOKEN);
 		const issue = await github.fetchIssue(owner, repo, issueNumber);
 		ok(`Issue: "${issue.title}"`);
-		info(`Body: ${(issue.body ?? "").slice(0, 200)}${(issue.body ?? "").length > 200 ? "..." : ""}`);
+		info(
+			`Body: ${(issue.body ?? "").slice(0, 200)}${(issue.body ?? "").length > 200 ? "..." : ""}`,
+		);
 
 		// Step 4: Submit bounty
 		log(4, "Submitting bounty");
-		const bountyRes = await solver.getStats(); // just to verify server is up
+		const _bountyRes = await solver.getStats(); // just to verify server is up
 		const submitRes = await fetch(`${baseUrl}/api/v1/bounties`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -166,7 +165,7 @@ async function main() {
 				language: null,
 			}),
 		});
-		const bounty = await submitRes.json() as { bountyId: string };
+		const bounty = (await submitRes.json()) as { bountyId: string };
 		ok(`Bounty: ${bounty.bountyId}`);
 
 		// Step 5: Claim
@@ -180,7 +179,7 @@ async function main() {
 
 		// Step 6: Fetch repo files via GitHub API
 		log(6, "Fetching repo tree + files via GitHub API");
-		let tree;
+		let tree: Awaited<ReturnType<typeof fetchRepoTree>>;
 		try {
 			tree = await fetchRepoTree(github, owner, repo, "HEAD");
 		} catch {
@@ -207,12 +206,7 @@ async function main() {
 		// Step 7: Call Claude to solve
 		log(7, "Calling Claude API to solve the issue");
 		const solveStart = Date.now();
-		const result = await solveBounty(
-			claimed.bounty as any,
-			files,
-			tree,
-			{ apiKey: anthropicKey },
-		);
+		const result = await solveBounty(claimed.bounty as any, files, tree, { apiKey: anthropicKey });
 		const solveDuration = Date.now() - solveStart;
 
 		if (!result.success) {
@@ -250,14 +244,12 @@ async function main() {
 		// Step 9: Reviewers vote
 		log(9, "Reviewers calling Claude API to review the fix");
 		for (let i = 0; i < reviewers.length; i++) {
-			const reviewResult = await reviewFix(
-				claimed.bounty as any,
-				diff,
-				result.explanation,
-				files,
-				{ apiKey: anthropicKey },
+			const reviewResult = await reviewFix(claimed.bounty as any, diff, result.explanation, files, {
+				apiKey: anthropicKey,
+			});
+			ok(
+				`Reviewer ${i + 1}: ${reviewResult.decision} (confidence: ${reviewResult.confidence}, ${reviewResult.tokensUsed} tokens)`,
 			);
-			ok(`Reviewer ${i + 1}: ${reviewResult.decision} (confidence: ${reviewResult.confidence}, ${reviewResult.tokensUsed} tokens)`);
 			if (reviewResult.issuesFound.length > 0) {
 				info(`  Issues: ${reviewResult.issuesFound.join(", ")}`);
 			}
@@ -306,7 +298,6 @@ ${result.changes.map((c) => `    ${c.path}`).join("\n")}
   Explanation:
     ${result.explanation}
 `);
-
 	} finally {
 		stopAll();
 		if (server) server.close();
