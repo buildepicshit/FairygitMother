@@ -51,25 +51,18 @@ export async function fetchRepoTree(
 	repo: string,
 	ref = "HEAD",
 ): Promise<RepoTree> {
-	// Use the internal octokit to get the tree
-	const _repoInfo = await github.getRepoInfo(owner, repo);
-	const response = await (github as any).octokit.rest.git.getTree({
-		owner,
-		repo,
-		tree_sha: ref,
-		recursive: "1",
-	});
+	const { tree, truncated } = await github.getTreeRecursive(owner, repo, ref);
 
 	return {
-		files: response.data.tree
-			.filter((entry: any) => entry.type === "blob")
-			.map((entry: any) => ({
+		files: tree
+			.filter((entry) => entry.type === "blob")
+			.map((entry) => ({
 				path: entry.path,
 				size: entry.size ?? 0,
 				sha: entry.sha,
-				type: entry.type,
+				type: entry.type as "blob" | "tree",
 			})),
-		truncated: response.data.truncated,
+		truncated,
 	};
 }
 
@@ -79,26 +72,22 @@ export async function fetchFile(
 	repo: string,
 	path: string,
 ): Promise<RepoFile> {
-	const response = await (github as any).octokit.rest.repos.getContent({
-		owner,
-		repo,
-		path,
-	});
+	const data = await github.getContentRaw(owner, repo, path);
 
-	if (Array.isArray(response.data) || response.data.type !== "file") {
+	if (data.type !== "file") {
 		throw new Error(`${path} is not a file`);
 	}
 
 	const content =
-		response.data.encoding === "base64"
-			? Buffer.from(response.data.content, "base64").toString("utf-8")
-			: response.data.content;
+		data.encoding === "base64" && data.content
+			? Buffer.from(data.content, "base64").toString("utf-8")
+			: (data.content ?? "");
 
 	return {
 		path,
 		content,
-		size: response.data.size,
-		sha: response.data.sha,
+		size: data.size,
+		sha: data.sha,
 	};
 }
 
@@ -252,48 +241,115 @@ export function generateUnifiedDiff(changes: FileChange[]): string {
 }
 
 function computeHunks(oldLines: string[], newLines: string[]): string[] {
-	// Simple LCS-based diff
-	const result: string[] = [];
+	// LCS-based diff split into context-aware hunks
 	const lcs = longestCommonSubsequence(oldLines, newLines);
+	const CONTEXT = 3;
 
+	// Build a flat list of diff operations
+	type DiffLine = {
+		type: "context" | "add" | "remove";
+		text: string;
+		oldLine: number;
+		newLine: number;
+	};
+	const allDiffLines: DiffLine[] = [];
 	let oldIdx = 0;
 	let newIdx = 0;
-	const hunkOldStart = 1;
-	const hunkNewStart = 1;
-	const hunkLines: string[] = [];
 
 	for (const common of lcs) {
-		// Lines removed (in old but not in new before this common line)
 		while (oldIdx < oldLines.length && oldLines[oldIdx] !== common) {
-			hunkLines.push(`-${oldLines[oldIdx]}`);
+			allDiffLines.push({
+				type: "remove",
+				text: oldLines[oldIdx],
+				oldLine: oldIdx + 1,
+				newLine: newIdx + 1,
+			});
 			oldIdx++;
 		}
-		// Lines added (in new but not in old before this common line)
 		while (newIdx < newLines.length && newLines[newIdx] !== common) {
-			hunkLines.push(`+${newLines[newIdx]}`);
+			allDiffLines.push({
+				type: "add",
+				text: newLines[newIdx],
+				oldLine: oldIdx + 1,
+				newLine: newIdx + 1,
+			});
 			newIdx++;
 		}
-		// Common line
-		hunkLines.push(` ${common}`);
+		allDiffLines.push({ type: "context", text: common, oldLine: oldIdx + 1, newLine: newIdx + 1 });
 		oldIdx++;
 		newIdx++;
 	}
-
-	// Remaining lines
 	while (oldIdx < oldLines.length) {
-		hunkLines.push(`-${oldLines[oldIdx]}`);
+		allDiffLines.push({
+			type: "remove",
+			text: oldLines[oldIdx],
+			oldLine: oldIdx + 1,
+			newLine: newIdx + 1,
+		});
 		oldIdx++;
 	}
 	while (newIdx < newLines.length) {
-		hunkLines.push(`+${newLines[newIdx]}`);
+		allDiffLines.push({
+			type: "add",
+			text: newLines[newIdx],
+			oldLine: oldIdx + 1,
+			newLine: newIdx + 1,
+		});
 		newIdx++;
 	}
 
-	if (hunkLines.some((l) => l.startsWith("+") || l.startsWith("-"))) {
-		const oldCount = hunkLines.filter((l) => !l.startsWith("+")).length;
-		const newCount = hunkLines.filter((l) => !l.startsWith("-")).length;
-		result.push(`@@ -${hunkOldStart},${oldCount} +${hunkNewStart},${newCount} @@`);
+	// Find change regions and group into hunks with context
+	const changeIndices = allDiffLines
+		.map((l, i) => (l.type !== "context" ? i : -1))
+		.filter((i) => i >= 0);
+	if (changeIndices.length === 0) return [];
+
+	const result: string[] = [];
+	let hunkStart = Math.max(0, changeIndices[0] - CONTEXT);
+
+	for (let ci = 0; ci < changeIndices.length; ci++) {
+		const nextChangeIdx = ci + 1 < changeIndices.length ? changeIndices[ci + 1] : null;
+		const currentEnd = changeIndices[ci] + CONTEXT;
+
+		// If next change is within context range, extend this hunk
+		if (nextChangeIdx !== null && nextChangeIdx <= currentEnd + 1) {
+			continue;
+		}
+
+		// Emit this hunk
+		const hunkEnd = Math.min(allDiffLines.length - 1, currentEnd);
+		const hunkLines: string[] = [];
+		let oldStart = 0;
+		let newStart = 0;
+		let oldCount = 0;
+		let newCount = 0;
+
+		for (let i = hunkStart; i <= hunkEnd; i++) {
+			const dl = allDiffLines[i];
+			if (i === hunkStart) {
+				oldStart = dl.oldLine;
+				newStart = dl.newLine;
+			}
+			if (dl.type === "context") {
+				hunkLines.push(` ${dl.text}`);
+				oldCount++;
+				newCount++;
+			} else if (dl.type === "remove") {
+				hunkLines.push(`-${dl.text}`);
+				oldCount++;
+			} else {
+				hunkLines.push(`+${dl.text}`);
+				newCount++;
+			}
+		}
+
+		result.push(`@@ -${oldStart},${oldCount} +${newStart},${newCount} @@`);
 		result.push(...hunkLines);
+
+		// Next hunk starts after this one's context
+		if (nextChangeIdx !== null) {
+			hunkStart = Math.max(hunkEnd + 1, nextChangeIdx - CONTEXT);
+		}
 	}
 
 	return result;

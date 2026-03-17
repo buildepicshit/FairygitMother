@@ -16,9 +16,11 @@ const config = loadConfig();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = resolve(__dirname, "../../../migrations");
 
-const databaseUrl =
-	process.env.DATABASE_URL ??
-	"postgresql://fgmadmin:FgM_2026!SecureDb@fgm-db.postgres.database.azure.com:5432/fairygitmother?sslmode=require";
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+	console.error("[fairygitmother] FATAL: DATABASE_URL environment variable is required.");
+	process.exit(1);
+}
 
 await runMigrations(databaseUrl, migrationsDir);
 const db = getDb(databaseUrl);
@@ -110,9 +112,11 @@ const _server = serve({
 console.log(`[fairygitmother] Server running on http://${config.host}:${config.port}`);
 
 // Graceful shutdown
-process.on("SIGINT", async () => {
-	console.log("\n[fairygitmother] Shutting down...");
+async function shutdown(signal: string) {
+	console.log(`\n[fairygitmother] ${signal} received, shutting down...`);
 	await savePersistedStats(statsPath, db, persistedStats);
 	stopAll();
 	process.exit(0);
-});
+}
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));

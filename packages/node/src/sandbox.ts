@@ -157,6 +157,19 @@ export async function safeClone(
 		// Phase 2: Disconnect network — from this point, no external communication
 		await exec("docker", ["network", "disconnect", "bridge", cid], { timeout: 10_000 });
 
+		// Verify network disconnect succeeded
+		const inspectResult = await exec(
+			"docker",
+			["inspect", "--format", "{{len .NetworkSettings.Networks}}", cid],
+			{ timeout: 10_000 },
+		);
+		const networkCount = Number.parseInt(inspectResult.trim(), 10);
+		if (networkCount > 0) {
+			throw new Error(
+				`Network disconnect verification failed: container still has ${networkCount} network(s) connected`,
+			);
+		}
+
 		// Phase 3: Verify repo size
 		const sizeResult = await containerExec(
 			cid,
@@ -240,6 +253,7 @@ export async function readContainerFile(
 	result: SafeCloneResult,
 	relativePath: string,
 ): Promise<string> {
+	validateRelativePath(relativePath);
 	const r = await containerExec(
 		result.containerId,
 		["cat", `/workspace/repo/${relativePath}`],
@@ -252,6 +266,9 @@ export async function listContainerFiles(
 	result: SafeCloneResult,
 	relativePath = "",
 ): Promise<string[]> {
+	if (relativePath) {
+		validateRelativePath(relativePath);
+	}
 	const r = await containerExec(
 		result.containerId,
 		[
@@ -274,17 +291,8 @@ export async function listContainerFiles(
 		.map((f) => f.replace("/workspace/repo/", ""));
 }
 
-export async function exportDiff(result: SafeCloneResult): Promise<string> {
-	// Generate diff inside container and read via stdout.
-	// No host volume needed — diff content crosses the container boundary
-	// only through the exec pipe, same as generateDiff.
-	const r = await containerExec(
-		result.containerId,
-		["git", "-C", "/workspace/repo", "diff"],
-		30_000,
-	);
-	return r.stdout;
-}
+/** Alias for generateDiff — kept for backward compatibility. */
+export const exportDiff = generateDiff;
 
 // ── Git config security scanning ───────────────────────────────
 
@@ -345,6 +353,26 @@ async function scanGitConfig(containerId: string): Promise<void> {
 
 	if (issues.length > 0) {
 		throw new Error(`Git security scan failed:\n${issues.map((i) => `  - ${i}`).join("\n")}`);
+	}
+}
+
+// ── Path validation ────────────────────────────────────────────
+
+function validateRelativePath(relativePath: string): void {
+	if (!relativePath) {
+		throw new Error("Path must not be empty");
+	}
+	if (relativePath.includes("\0")) {
+		throw new Error("Path must not contain null bytes");
+	}
+	if (relativePath.startsWith("/") || /^[A-Za-z]:/.test(relativePath)) {
+		throw new Error("Path must be relative, not absolute");
+	}
+	const segments = relativePath.split(/[/\\]/);
+	for (const segment of segments) {
+		if (segment === ".." || segment === ".") {
+			throw new Error(`Path traversal not allowed: "${relativePath}"`);
+		}
 	}
 }
 

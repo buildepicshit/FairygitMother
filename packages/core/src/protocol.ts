@@ -113,6 +113,8 @@ export interface GridStats {
 	prsSubmittedToday: number;
 	prsSubmittedAllTime: number;
 	totalTokensDonated: number;
+	totalBountiesSolved: number;
+	totalReviewsDone: number;
 	averageSolveTimeMs: number;
 	mergeRate: number;
 }

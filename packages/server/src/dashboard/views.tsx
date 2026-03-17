@@ -1,6 +1,6 @@
 import { desc } from "drizzle-orm";
 import { Hono } from "hono";
-import { html, raw } from "hono/html";
+import { html } from "hono/html";
 import { getGridStats } from "../api/stats.js";
 import type { FairygitMotherDb } from "../db/client.js";
 import { bounties, consensusResults, nodes } from "../db/schema.js";
@@ -110,26 +110,22 @@ export function createDashboardRoutes(db: FairygitMotherDb) {
 			.orderBy(desc(bounties.createdAt))
 			.limit(50);
 
-		const rows = allBounties
-			.map(
-				(b) => html`
-				<tr>
-					<td><a href="https://github.com/${b.owner}/${b.repo}/issues/${b.issueNumber}" target="_blank">${b.owner}/${b.repo}#${b.issueNumber}</a></td>
-					<td>${b.issueTitle}</td>
-					<td>${b.language ?? "—"}</td>
-					<td><span class="status status-${b.status}">${b.status}</span></td>
-					<td>${b.complexityEstimate}/5</td>
-				</tr>`,
-			)
-			.join("");
-
 		const content = html`
 			<h1>Bounty Board</h1>
 			<table>
 				<thead>
 					<tr><th>Issue</th><th>Title</th><th>Language</th><th>Status</th><th>Complexity</th></tr>
 				</thead>
-				<tbody>${raw(rows)}</tbody>
+				<tbody>${allBounties.map(
+					(b) => html`
+					<tr>
+						<td><a href="https://github.com/${b.owner}/${b.repo}/issues/${b.issueNumber}" target="_blank">${b.owner}/${b.repo}#${b.issueNumber}</a></td>
+						<td>${b.issueTitle}</td>
+						<td>${b.language ?? "—"}</td>
+						<td><span class="status status-${b.status}">${b.status}</span></td>
+						<td>${b.complexityEstimate}/5</td>
+					</tr>`,
+				)}</tbody>
 			</table>`;
 
 		return c.html(layout("Bounties", content));
@@ -143,28 +139,24 @@ export function createDashboardRoutes(db: FairygitMotherDb) {
 			.orderBy(desc(nodes.totalBountiesSolved))
 			.limit(20);
 
-		const rows = topNodes
-			.map(
-				(n, i) => html`
-				<tr>
-					<td>${i + 1}</td>
-					<td>${n.displayName ?? n.id}</td>
-					<td>${n.solverBackend}</td>
-					<td>${n.totalBountiesSolved}</td>
-					<td>${formatNumber(n.totalTokensDonated)}</td>
-					<td>${n.reputationScore.toFixed(1)}</td>
-					<td><span class="status status-${n.status}">${n.status}</span></td>
-				</tr>`,
-			)
-			.join("");
-
 		const content = html`
 			<h1>Leaderboard</h1>
 			<table>
 				<thead>
 					<tr><th>#</th><th>Node</th><th>Backend</th><th>PRs Merged</th><th>Tokens</th><th>Rep</th><th>Status</th></tr>
 				</thead>
-				<tbody>${raw(rows)}</tbody>
+				<tbody>${topNodes.map(
+					(n, i) => html`
+					<tr>
+						<td>${i + 1}</td>
+						<td>${n.displayName ?? n.id}</td>
+						<td>${n.solverBackend}</td>
+						<td>${n.totalBountiesSolved}</td>
+						<td>${formatNumber(n.totalTokensDonated)}</td>
+						<td>${n.reputationScore.toFixed(1)}</td>
+						<td><span class="status status-${n.status}">${n.status}</span></td>
+					</tr>`,
+				)}</tbody>
 			</table>`;
 
 		return c.html(layout("Leaderboard", content));
@@ -796,21 +788,21 @@ excludedPaths:
 			.orderBy(desc(consensusResults.decidedAt))
 			.limit(20);
 
-		const rows = recent
-			.map(
-				(r) => html`
-				<div class="feed-item">
-					<span class="status status-${r.outcome}">${r.outcome}</span>
-					<span>${r.approveCount}/${r.totalVotes} approved</span>
-					${r.prUrl ? html`<a href="${r.prUrl}" target="_blank">View PR</a>` : ""}
-					<time>${r.decidedAt}</time>
-				</div>`,
-			)
-			.join("");
-
 		const content = html`
 			<h1>PR Feed</h1>
-			<div class="feed">${raw(rows || "<p>No activity yet.</p>")}</div>`;
+			<div class="feed">${
+				recent.length > 0
+					? recent.map(
+							(r) => html`
+					<div class="feed-item">
+						<span class="status status-${r.outcome}">${r.outcome}</span>
+						<span>${r.approveCount}/${r.totalVotes} approved</span>
+						${r.prUrl ? html`<a href="${r.prUrl}" target="_blank">View PR</a>` : ""}
+						<time>${r.decidedAt}</time>
+					</div>`,
+						)
+					: html`<p>No activity yet.</p>`
+			}</div>`;
 
 		return c.html(layout("Feed", content));
 	});

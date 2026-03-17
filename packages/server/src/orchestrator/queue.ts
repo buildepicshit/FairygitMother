@@ -16,11 +16,11 @@ export interface QueuedBounty {
 }
 
 export async function enqueue(db: FairygitMotherDb, bountyId: string, priority?: number) {
+	const update: Record<string, unknown> = { status: "queued" };
 	if (priority !== undefined) {
-		await db.update(bounties).set({ priority, status: "queued" }).where(eq(bounties.id, bountyId));
-	} else {
-		await db.update(bounties).set({ status: "queued" }).where(eq(bounties.id, bountyId));
+		update.priority = priority;
 	}
+	await db.update(bounties).set(update).where(eq(bounties.id, bountyId));
 }
 
 export async function dequeueForNode(
@@ -85,6 +85,40 @@ export async function markAssigned(db: FairygitMotherDb, bountyId: string, nodeI
 			updatedAt: new Date().toISOString(),
 		})
 		.where(eq(bounties.id, bountyId));
+}
+
+/**
+ * Atomically dequeues and assigns a bounty to a node.
+ * Uses UPDATE ... WHERE status = 'queued' with .returning() so that if another
+ * node races to claim the same bounty, one of them gets 0 rows and tries next.
+ */
+const MAX_CLAIM_RETRIES = 5;
+
+export async function dequeueAndAssign(
+	db: FairygitMotherDb,
+	nodeId: string,
+	_retries = 0,
+): Promise<QueuedBounty | null> {
+	const bounty = await dequeueForNode(db, nodeId);
+	if (!bounty) return null;
+
+	// Atomic claim: only succeeds if bounty is still queued
+	const claimed = await db
+		.update(bounties)
+		.set({
+			status: "assigned",
+			assignedNodeId: nodeId,
+			updatedAt: new Date().toISOString(),
+		})
+		.where(and(eq(bounties.id, bounty.id), eq(bounties.status, "queued")))
+		.returning({ id: bounties.id });
+
+	if (claimed.length === 0) {
+		if (_retries >= MAX_CLAIM_RETRIES) return null;
+		return dequeueAndAssign(db, nodeId, _retries + 1);
+	}
+
+	return bounty;
 }
 
 export async function requeue(db: FairygitMotherDb, bountyId: string) {

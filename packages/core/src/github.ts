@@ -1,5 +1,5 @@
 import { App, Octokit } from "octokit";
-import type { RepoConfig } from "./models.js";
+import { type RepoConfig, RepoConfigSchema } from "./models.js";
 
 export interface GitHubIssue {
 	number: number;
@@ -71,6 +71,12 @@ export class GitHubClient {
 		labels: string[],
 		limit = 20,
 	): Promise<GitHubIssue[]> {
+		// Guard against empty filters — without language or label filters,
+		// this would search all open issues on GitHub
+		if (languages.length === 0 && labels.length === 0) {
+			return [];
+		}
+
 		const langQuery = languages.map((l) => `language:${l}`).join(" ");
 		const labelQuery = labels.map((l) => `label:"${l}"`).join(" ");
 		const q = `is:issue is:open no:assignee ${labelQuery} ${langQuery}`.trim();
@@ -116,6 +122,49 @@ export class GitHubClient {
 			body,
 		});
 		return { number: data.number, html_url: data.html_url };
+	}
+
+	async getTreeRecursive(
+		owner: string,
+		repo: string,
+		treeSha: string,
+	): Promise<{
+		tree: Array<{ path: string; size?: number; sha: string; type: string }>;
+		truncated: boolean;
+	}> {
+		const { data } = await this.octokit.rest.git.getTree({
+			owner,
+			repo,
+			tree_sha: treeSha,
+			recursive: "1",
+		});
+		return {
+			tree: data.tree.map((entry) => ({
+				path: entry.path ?? "",
+				size: entry.size,
+				sha: entry.sha ?? "",
+				type: entry.type ?? "",
+			})),
+			truncated: data.truncated,
+		};
+	}
+
+	async getContentRaw(
+		owner: string,
+		repo: string,
+		path: string,
+	): Promise<{ type: string; encoding?: string; content?: string; size: number; sha: string }> {
+		const { data } = await this.octokit.rest.repos.getContent({ owner, repo, path });
+		if (Array.isArray(data)) {
+			throw new Error(`${path} is a directory, not a file`);
+		}
+		return {
+			type: data.type,
+			encoding: "encoding" in data ? (data.encoding as string) : undefined,
+			content: "content" in data ? (data.content as string) : undefined,
+			size: data.size,
+			sha: data.sha,
+		};
 	}
 
 	// ── Git Data API (for programmatic commits) ─────────────────
@@ -240,5 +289,5 @@ function parseFairygitMotherYml(content: string): RepoConfig {
 		}
 	}
 
-	return raw as RepoConfig;
+	return RepoConfigSchema.parse(raw);
 }

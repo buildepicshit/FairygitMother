@@ -2,24 +2,10 @@ import { generateApiKey, generateId } from "@fairygitmother/core";
 import { evaluateConsensus, recordConsensus } from "@fairygitmother/server/consensus/aggregator.js";
 import * as schema from "@fairygitmother/server/db/schema.js";
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
-import pg from "pg";
 import { beforeEach, describe, expect, it } from "vitest";
+import { type TestDb, cleanAllTables, createTestDb } from "../../helpers/db.js";
 
-const TEST_DB_URL =
-	process.env.DATABASE_URL ??
-	"postgresql://fgmadmin:FgM_2026!SecureDb@fgm-db.postgres.database.azure.com:5432/fairygitmother?sslmode=require";
-
-function createTestDb() {
-	const pool = new pg.Pool({
-		connectionString: TEST_DB_URL,
-		ssl: TEST_DB_URL.includes("azure") ? { rejectUnauthorized: false } : undefined,
-		max: 5,
-	});
-	return drizzle(pool, { schema });
-}
-
-async function setupScenario(db: ReturnType<typeof createTestDb>) {
+async function setupScenario(db: TestDb) {
 	// Create solver node (established — 10 bounties solved for 2-of-3 requirement)
 	const solverId = generateId("node");
 	await db.insert(schema.nodes).values({
@@ -76,18 +62,11 @@ async function setupScenario(db: ReturnType<typeof createTestDb>) {
 }
 
 describe("consensus aggregator", () => {
-	let db: ReturnType<typeof createTestDb>;
+	let db: TestDb;
 
 	beforeEach(async () => {
 		db = createTestDb();
-		// Clean tables for test isolation
-		await db.delete(schema.auditLog);
-		await db.delete(schema.consensusResults);
-		await db.delete(schema.votes);
-		await db.delete(schema.submissions);
-		await db.delete(schema.bounties);
-		await db.delete(schema.nodes);
-		await db.delete(schema.repos);
+		await cleanAllTables(db);
 	});
 
 	describe("evaluateConsensus", () => {
@@ -186,6 +165,30 @@ describe("consensus aggregator", () => {
 				await db.select().from(schema.bounties).where(eq(schema.bounties.id, bountyId))
 			)[0];
 			expect(bounty?.status).toBe("approved");
+		});
+
+		it("is idempotent — skips if consensus already recorded", async () => {
+			const { submissionId, reviewerIds } = await setupScenario(db);
+
+			for (let i = 0; i < 2; i++) {
+				await db.insert(schema.votes).values({
+					id: generateId("vote"),
+					submissionId,
+					reviewerNodeId: reviewerIds[i],
+					decision: "approve",
+					reasoning: "LGTM",
+					confidence: 0.9,
+				});
+			}
+
+			await recordConsensus(db, submissionId, "approved");
+			await recordConsensus(db, submissionId, "approved");
+
+			const results = await db
+				.select()
+				.from(schema.consensusResults)
+				.where(eq(schema.consensusResults.submissionId, submissionId));
+			expect(results.length).toBe(1);
 		});
 
 		it("applies reputation on rejection", async () => {

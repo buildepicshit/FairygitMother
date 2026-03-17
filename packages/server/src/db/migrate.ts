@@ -27,5 +27,13 @@ export async function runMigrations(connectionString: string, migrationsDir: str
 		console.log("[migrations] Applied PostgreSQL migration 0001_initial_pg.sql");
 	}
 
+	if (version < 2) {
+		const migrationFile = join(migrationsDir, "0002_add_indexes_and_constraints.sql");
+		const sql = readFileSync(migrationFile, "utf-8");
+		await client.query(sql);
+		await client.query("INSERT INTO schema_version (version) VALUES ($1)", [2]);
+		console.log("[migrations] Applied PostgreSQL migration 0002_add_indexes_and_constraints.sql");
+	}
+
 	await client.end();
 }

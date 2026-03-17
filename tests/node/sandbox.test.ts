@@ -1,5 +1,9 @@
-import { isDockerAvailable, resetDockerCheck } from "@fairygitmother/node";
+import { isDockerAvailable, resetDockerCheck, safeClone } from "@fairygitmother/node";
 import { beforeEach, describe, expect, it } from "vitest";
+
+// Access the non-exported validateRelativePath by testing through the public API
+// We import readContainerFile and listContainerFiles for path traversal tests
+import { listContainerFiles, readContainerFile } from "@fairygitmother/node";
 
 describe("sandbox", () => {
 	describe("isDockerAvailable", () => {
@@ -29,10 +33,8 @@ describe("sandbox", () => {
 
 	describe("safeClone", () => {
 		it("requires Docker to be available", async () => {
-			// If Docker isn't available, safeClone should throw with a clear message
 			const dockerOk = await isDockerAvailable();
 			if (!dockerOk) {
-				const { safeClone } = await import("@fairygitmother/node");
 				await expect(safeClone("https://github.com/octocat/Hello-World")).rejects.toThrow(
 					"Docker is required",
 				);
@@ -40,32 +42,35 @@ describe("sandbox", () => {
 		});
 	});
 
-	describe("security model", () => {
-		it("sandbox container has no network after clone", () => {
-			// This is a design verification test — the safeClone function
-			// runs `docker network disconnect bridge <cid>` after cloning.
-			// The network disconnect happens between Phase 1 (clone) and
-			// Phase 3 (size check), ensuring no exfiltration is possible
-			// during the solve phase.
-			expect(true).toBe(true);
+	describe("path traversal protection", () => {
+		const fakeResult = {
+			containerId: "fake-container",
+			workDir: "/tmp/fake",
+			cleanup: async () => {},
+		};
+
+		it("rejects path with .. traversal", async () => {
+			await expect(readContainerFile(fakeResult, "../../../etc/passwd")).rejects.toThrow(
+				"Path traversal not allowed",
+			);
 		});
 
-		it("sandbox container has memory limits", () => {
-			// Container is started with --memory=512m by default.
-			// Prevents OOM attacks from malicious repos with large files.
-			expect(true).toBe(true);
+		it("rejects absolute paths", async () => {
+			await expect(readContainerFile(fakeResult, "/etc/passwd")).rejects.toThrow(
+				"Path must be relative, not absolute",
+			);
 		});
 
-		it("sandbox container has PID limits", () => {
-			// Container is started with --pids-limit=100.
-			// Prevents fork bombs.
-			expect(true).toBe(true);
+		it("rejects paths with null bytes", async () => {
+			await expect(readContainerFile(fakeResult, "file\0.txt")).rejects.toThrow(
+				"Path must not contain null bytes",
+			);
 		});
 
-		it("sandbox container prevents privilege escalation", () => {
-			// Container is started with --security-opt=no-new-privileges.
-			// Even if a binary is setuid, it can't escalate.
-			expect(true).toBe(true);
+		it("rejects listContainerFiles with traversal", async () => {
+			await expect(listContainerFiles(fakeResult, "../../etc")).rejects.toThrow(
+				"Path traversal not allowed",
+			);
 		});
 	});
 });

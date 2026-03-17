@@ -14,6 +14,9 @@ export function getDb(connectionString: string): FairygitMotherDb {
 			ssl: connectionString.includes("azure") ? { rejectUnauthorized: false } : undefined,
 			max: 10,
 		});
+		_pgPool.on("error", (err) => {
+			console.error("[db] Idle pool client error:", err.message);
+		});
 		_db = drizzle(_pgPool, { schema });
 	}
 	return _db;

@@ -1,4 +1,13 @@
-import { boolean, integer, jsonb, pgTable, real, serial, text } from "drizzle-orm/pg-core";
+import {
+	boolean,
+	integer,
+	jsonb,
+	pgTable,
+	real,
+	serial,
+	text,
+	uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 export const repos = pgTable("repos", {
 	id: serial("id").primaryKey(),
@@ -78,23 +87,29 @@ export const submissions = pgTable("submissions", {
 		.$defaultFn(() => new Date().toISOString()),
 });
 
-export const votes = pgTable("votes", {
-	id: text("id").primaryKey(),
-	submissionId: text("submission_id")
-		.notNull()
-		.references(() => submissions.id),
-	reviewerNodeId: text("reviewer_node_id")
-		.notNull()
-		.references(() => nodes.id),
-	decision: text("decision").notNull(),
-	reasoning: text("reasoning").notNull(),
-	issuesFound: jsonb("issues_found").$type<string[]>().notNull().default([]),
-	confidence: real("confidence").notNull(),
-	testsRun: boolean("tests_run").notNull().default(false),
-	votedAt: text("voted_at")
-		.notNull()
-		.$defaultFn(() => new Date().toISOString()),
-});
+export const votes = pgTable(
+	"votes",
+	{
+		id: text("id").primaryKey(),
+		submissionId: text("submission_id")
+			.notNull()
+			.references(() => submissions.id),
+		reviewerNodeId: text("reviewer_node_id")
+			.notNull()
+			.references(() => nodes.id),
+		decision: text("decision").notNull(),
+		reasoning: text("reasoning").notNull(),
+		issuesFound: jsonb("issues_found").$type<string[]>().notNull().default([]),
+		confidence: real("confidence").notNull(),
+		testsRun: boolean("tests_run").notNull().default(false),
+		votedAt: text("voted_at")
+			.notNull()
+			.$defaultFn(() => new Date().toISOString()),
+	},
+	(table) => [
+		uniqueIndex("uq_votes_submission_reviewer").on(table.submissionId, table.reviewerNodeId),
+	],
+);
 
 export const consensusResults = pgTable("consensus_results", {
 	id: text("id").primaryKey(),

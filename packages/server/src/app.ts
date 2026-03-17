@@ -10,6 +10,7 @@ import type { PrSubmitContext } from "./consensus/aggregator.js";
 import { createDashboardRoutes } from "./dashboard/views.js";
 import type { FairygitMotherDb } from "./db/client.js";
 import { authMiddleware } from "./middleware/auth.js";
+import { createRateLimiter } from "./middleware/ratelimit.js";
 
 export function createApp(db: FairygitMotherDb, prContext?: PrSubmitContext) {
 	const app = new Hono();
@@ -17,6 +18,7 @@ export function createApp(db: FairygitMotherDb, prContext?: PrSubmitContext) {
 	// Middleware
 	app.use("*", logger());
 	app.use("/api/*", cors());
+	app.use("/api/*", createRateLimiter());
 	app.use("/api/*", authMiddleware(db));
 
 	// Health check

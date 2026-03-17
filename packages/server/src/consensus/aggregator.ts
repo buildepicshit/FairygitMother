@@ -51,6 +51,15 @@ export async function recordConsensus(
 	outcome: "approved" | "rejected" | "timeout",
 	prContext?: PrSubmitContext,
 ) {
+	// Idempotency guard: skip if consensus already recorded for this submission
+	const existing = (
+		await db
+			.select({ id: consensusResults.id })
+			.from(consensusResults)
+			.where(eq(consensusResults.submissionId, submissionId))
+	)[0];
+	if (existing) return existing.id;
+
 	const allVotes = await db.select().from(votes).where(eq(votes.submissionId, submissionId));
 
 	const approvals = allVotes.filter((v) => v.decision === "approve").length;

@@ -5,42 +5,49 @@ import {
 	RegisterNodeRequestSchema,
 	type VersionUpdateInfo,
 } from "@fairygitmother/core";
-import { and, eq, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import type { FairygitMotherDb } from "../db/client.js";
 import { bounties, submissions, votes } from "../db/schema.js";
-import { dequeueForNode, markAssigned } from "../orchestrator/queue.js";
+import { dequeueAndAssign } from "../orchestrator/queue.js";
 import { heartbeat, registerNode, removeNode } from "../orchestrator/registry.js";
 
-function buildSkillUpdate(clientVersion: string | undefined): VersionUpdateInfo | null {
-	if (clientVersion === CURRENT_SKILL_VERSION) return null;
-	return {
-		updateAvailable: true,
-		currentVersion: clientVersion ?? "unknown",
-		latestVersion: CURRENT_SKILL_VERSION,
-		updateInstructions: {
-			npm: "npm install @fairygitmother/skill-openclaw@latest",
-			pnpm: "pnpm add @fairygitmother/skill-openclaw@latest",
-			openclaw: "openclaw install fairygitmother@latest",
-			manual:
-				"https://github.com/buildepicshit/FairygitMother/blob/main/packages/skill-openclaw/SKILL.md",
-		},
-		changelog: "https://github.com/buildepicshit/FairygitMother/releases",
-	};
+interface VersionCheckConfig {
+	latestVersion: string;
+	npm: string;
+	pnpm: string;
+	manual: string;
 }
 
-function buildApiUpdate(clientVersion: string | undefined): VersionUpdateInfo | null {
-	if (clientVersion === CURRENT_API_VERSION) return null;
+const SKILL_VERSION_CONFIG: VersionCheckConfig = {
+	latestVersion: CURRENT_SKILL_VERSION,
+	npm: "npm install @fairygitmother/skill-openclaw@latest",
+	pnpm: "pnpm add @fairygitmother/skill-openclaw@latest",
+	manual:
+		"https://github.com/buildepicshit/FairygitMother/blob/main/packages/skill-openclaw/SKILL.md",
+};
+
+const API_VERSION_CONFIG: VersionCheckConfig = {
+	latestVersion: CURRENT_API_VERSION,
+	npm: "npm install @fairygitmother/core@latest @fairygitmother/node@latest",
+	pnpm: "pnpm add @fairygitmother/core@latest @fairygitmother/node@latest",
+	manual: "https://github.com/buildepicshit/FairygitMother/blob/main/packages/core/src/protocol.ts",
+};
+
+function buildVersionUpdate(
+	clientVersion: string | undefined,
+	config: VersionCheckConfig,
+): VersionUpdateInfo | null {
+	if (clientVersion === config.latestVersion) return null;
 	return {
 		updateAvailable: true,
 		currentVersion: clientVersion ?? "unknown",
-		latestVersion: CURRENT_API_VERSION,
+		latestVersion: config.latestVersion,
 		updateInstructions: {
-			npm: "npm install @fairygitmother/core@latest @fairygitmother/node@latest",
-			pnpm: "pnpm add @fairygitmother/core@latest @fairygitmother/node@latest",
+			npm: config.npm,
+			pnpm: config.pnpm,
 			openclaw: "openclaw install fairygitmother@latest",
-			manual:
-				"https://github.com/buildepicshit/FairygitMother/blob/main/packages/core/src/protocol.ts",
+			manual: config.manual,
 		},
 		changelog: "https://github.com/buildepicshit/FairygitMother/releases",
 	};
@@ -54,18 +61,16 @@ async function findPendingReview(db: FairygitMotherDb, nodeId: string) {
 		.innerJoin(bounties, eq(submissions.bountyId, bounties.id))
 		.where(inArray(bounties.status, ["diff_submitted", "in_review"]));
 
-	for (const row of pendingSubmissions) {
-		// Skip if this node is the solver
-		if (row.submissions.nodeId === nodeId) continue;
+	// Batch-fetch all votes by this reviewer to avoid N+1 queries
+	const myVotes = await db
+		.select({ submissionId: votes.submissionId })
+		.from(votes)
+		.where(eq(votes.reviewerNodeId, nodeId));
+	const votedSubmissions = new Set(myVotes.map((v) => v.submissionId));
 
-		// Skip if this node already voted
-		const existingVote = (
-			await db
-				.select()
-				.from(votes)
-				.where(and(eq(votes.submissionId, row.submissions.id), eq(votes.reviewerNodeId, nodeId)))
-		)[0];
-		if (existingVote) continue;
+	for (const row of pendingSubmissions) {
+		if (row.submissions.nodeId === nodeId) continue;
+		if (votedSubmissions.has(row.submissions.id)) continue;
 
 		// Transition to in_review if still diff_submitted
 		if (row.bounties.status === "diff_submitted") {
@@ -132,9 +137,8 @@ export function createNodeRoutes(db: FairygitMotherDb) {
 			pendingReview = await findPendingReview(db, nodeId);
 
 			if (!pendingReview) {
-				const bounty = await dequeueForNode(db, nodeId);
+				const bounty = await dequeueAndAssign(db, nodeId);
 				if (bounty) {
-					await markAssigned(db, bounty.id, nodeId);
 					pendingBounty = {
 						...bounty,
 						repoUrl: `https://github.com/${bounty.owner}/${bounty.repo}`,
@@ -147,8 +151,8 @@ export function createNodeRoutes(db: FairygitMotherDb) {
 			}
 		}
 
-		const skillUpdate = buildSkillUpdate(parsed.data.skillVersion);
-		const apiUpdate = buildApiUpdate(parsed.data.apiVersion);
+		const skillUpdate = buildVersionUpdate(parsed.data.skillVersion, SKILL_VERSION_CONFIG);
+		const apiUpdate = buildVersionUpdate(parsed.data.apiVersion, API_VERSION_CONFIG);
 
 		return c.json({
 			acknowledged: true,

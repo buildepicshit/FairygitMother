@@ -6,7 +6,7 @@ import { logAudit } from "../audit.js";
 import { scanDiff } from "../consensus/safety.js";
 import type { FairygitMotherDb } from "../db/client.js";
 import { bounties, repos, submissions } from "../db/schema.js";
-import { dequeueForNode, markAssigned } from "../orchestrator/queue.js";
+import { dequeueAndAssign } from "../orchestrator/queue.js";
 import { findNodeByApiKey } from "../orchestrator/registry.js";
 import { emitEvent } from "./feed.js";
 
@@ -153,20 +153,17 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 			if (body.apiKey) {
 				const node = await findNodeByApiKey(db, body.apiKey);
 				if (node) nodeId = node.id;
-			} else if (body.nodeId) {
-				nodeId = body.nodeId;
 			}
 			if (!nodeId) {
-				return c.json({ error: "Provide Authorization header, apiKey, or nodeId in body" }, 401);
+				return c.json({ error: "Provide Authorization header or apiKey in body" }, 401);
 			}
 		}
 
-		const bounty = await dequeueForNode(db, nodeId);
+		const bounty = await dequeueAndAssign(db, nodeId);
 		if (!bounty) {
 			return c.json({ bounty: null });
 		}
 
-		await markAssigned(db, bounty.id, nodeId);
 		await logAudit(db, "bounty_assigned", bounty.id, { nodeId });
 
 		emitEvent({
@@ -199,6 +196,12 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 		const bounty = (await db.select().from(bounties).where(eq(bounties.id, bountyId)))[0];
 		if (!bounty) {
 			return c.json({ error: "Bounty not found" }, 404);
+		}
+
+		// Verify the submitter is the assigned node
+		const submitterNodeId = c.get("nodeId") as string | undefined;
+		if (bounty.assignedNodeId && submitterNodeId && bounty.assignedNodeId !== submitterNodeId) {
+			return c.json({ error: "Only the assigned node can submit a fix for this bounty" }, 403);
 		}
 
 		// Safety scan

@@ -1,0 +1,16 @@
+services:
+  test-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fgmtest
+      POSTGRES_PASSWORD: fgmtest
+      POSTGRES_DB: fgmtest
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fgmtest"]
+      interval: 1s
+      timeout: 5s
+      retries: 10

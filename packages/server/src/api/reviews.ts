@@ -1,5 +1,5 @@
 import { SubmitVoteRequestSchema, generateId } from "@fairygitmother/core";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { logAudit } from "../audit.js";
 import {
@@ -36,6 +36,17 @@ export function createReviewRoutes(db: FairygitMotherDb, prContext?: PrSubmitCon
 		// Can't review your own submission
 		if (submission.nodeId === reviewerNodeId) {
 			return c.json({ error: "Cannot review your own submission" }, 403);
+		}
+
+		// Prevent duplicate votes from the same reviewer
+		const existingVote = (
+			await db
+				.select({ id: votes.id })
+				.from(votes)
+				.where(and(eq(votes.submissionId, submissionId), eq(votes.reviewerNodeId, reviewerNodeId)))
+		)[0];
+		if (existingVote) {
+			return c.json({ error: "Already voted on this submission" }, 409);
 		}
 
 		// Transition bounty to in_review on first vote

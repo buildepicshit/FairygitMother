@@ -1,5 +1,5 @@
 import type { GridStats } from "@fairygitmother/core";
-import { eq, gte, ne, sql } from "drizzle-orm";
+import { and, eq, gte, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { FairygitMotherDb } from "../db/client.js";
 import { bounties, consensusResults, nodes, submissions } from "../db/schema.js";
@@ -48,7 +48,7 @@ export async function getGridStats(db: FairygitMotherDb): Promise<GridStats> {
 			await db
 				.select({ count: sql<number>`count(*)::int` })
 				.from(bounties)
-				.where(eq(bounties.status, "in_progress"))
+				.where(eq(bounties.status, "assigned"))
 		)[0]?.count ?? 0;
 
 	const todayStart = new Date();
@@ -59,10 +59,15 @@ export async function getGridStats(db: FairygitMotherDb): Promise<GridStats> {
 			await db
 				.select({ count: sql<number>`count(*)::int` })
 				.from(consensusResults)
-				.where(gte(consensusResults.decidedAt, todayStart.toISOString()))
+				.where(
+					and(
+						eq(consensusResults.outcome, "approved"),
+						gte(consensusResults.decidedAt, todayStart.toISOString()),
+					),
+				)
 		)[0]?.count ?? 0;
 
-	const prsAllTime =
+	const totalApproved =
 		(
 			await db
 				.select({ count: sql<number>`count(*)::int` })
@@ -86,16 +91,22 @@ export async function getGridStats(db: FairygitMotherDb): Promise<GridStats> {
 				.from(submissions)
 		)[0]?.avg ?? 0;
 
-	const totalApproved =
-		(
-			await db
-				.select({ count: sql<number>`count(*)::int` })
-				.from(consensusResults)
-				.where(eq(consensusResults.outcome, "approved"))
-		)[0]?.count ?? 0;
-
 	const totalDecided =
 		(await db.select({ count: sql<number>`count(*)::int` }).from(consensusResults))[0]?.count ?? 0;
+
+	const bountiesSolvedSum =
+		(
+			await db
+				.select({ total: sql<number>`COALESCE(SUM(${nodes.totalBountiesSolved}), 0)::int` })
+				.from(nodes)
+		)[0]?.total ?? 0;
+
+	const reviewSum =
+		(
+			await db
+				.select({ total: sql<number>`COALESCE(SUM(${nodes.totalReviewsDone}), 0)::int` })
+				.from(nodes)
+		)[0]?.total ?? 0;
 
 	const base = statsBaseline;
 
@@ -105,8 +116,10 @@ export async function getGridStats(db: FairygitMotherDb): Promise<GridStats> {
 		queueDepth,
 		bountiesInProgress,
 		prsSubmittedToday: prsToday,
-		prsSubmittedAllTime: prsAllTime + (base?.totalPrsSubmitted ?? 0),
+		prsSubmittedAllTime: totalApproved + (base?.totalPrsSubmitted ?? 0),
 		totalTokensDonated: tokenSum + (base?.totalTokensDonated ?? 0),
+		totalBountiesSolved: Math.max(bountiesSolvedSum, base?.totalBountiesSolved ?? 0),
+		totalReviewsDone: Math.max(reviewSum, base?.totalReviewsDone ?? 0),
 		averageSolveTimeMs: Math.round(avgSolve),
 		mergeRate: totalDecided > 0 ? totalApproved / totalDecided : 0,
 	};

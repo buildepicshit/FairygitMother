@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { getGridStats } from "./api/stats.js";
 import type { FairygitMotherDb } from "./db/client.js";
@@ -50,17 +50,15 @@ export async function savePersistedStats(
 
 	const updated: PersistedStats = {
 		totalTokensDonated: Math.max(baseline.totalTokensDonated, live.totalTokensDonated),
-		totalBountiesSolved: Math.max(baseline.totalBountiesSolved, live.prsSubmittedAllTime),
+		totalBountiesSolved: Math.max(baseline.totalBountiesSolved, live.totalBountiesSolved),
 		totalPrsSubmitted: Math.max(baseline.totalPrsSubmitted, live.prsSubmittedAllTime),
-		totalReviewsDone: Math.max(baseline.totalReviewsDone, 0),
+		totalReviewsDone: Math.max(baseline.totalReviewsDone, live.totalReviewsDone),
 		lastSnapshotAt: new Date().toISOString(),
 	};
 
 	try {
-		// Ensure directory exists
 		const dir = dirname(filePath);
 		if (!existsSync(dir)) {
-			const { mkdirSync } = require("node:fs");
 			mkdirSync(dir, { recursive: true });
 		}
 		writeFileSync(filePath, JSON.stringify(updated, null, 2));
