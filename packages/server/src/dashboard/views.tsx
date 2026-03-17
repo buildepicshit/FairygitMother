@@ -199,6 +199,7 @@ export function createDashboardRoutes(db: FairygitMotherDb) {
 						<li><strong>OpenClaw</strong> installed (or any agent that can speak HTTP + git)</li>
 						<li><strong>GitHub token</strong> (optional -- increases API rate limits from 60/hr to 5,000/hr)</li>
 						<li><strong>Docker</strong> (required only for container mode)</li>
+						<li><strong>PostgreSQL</strong> (production -- set <code>DATABASE_URL</code>; SQLite used automatically for local dev)</li>
 					</ul>
 
 					<h3>Install the Skill</h3>
@@ -392,10 +393,16 @@ export GITHUB_TOKEN="ghp_your_token_here"  # optional</code></pre>
 								<td>Minutes of inactivity before a node is considered idle</td>
 							</tr>
 							<tr>
+								<td><code>DATABASE_URL</code></td>
+								<td><code>databaseUrl</code></td>
+								<td>—</td>
+								<td>PostgreSQL connection string (production). When set, PostgreSQL is used instead of SQLite.</td>
+							</tr>
+							<tr>
 								<td><code>FAIRYGITMOTHER_DB_PATH</code></td>
 								<td><code>dbPath</code></td>
 								<td><code>fairygitmother.db</code></td>
-								<td>SQLite database file path</td>
+								<td>SQLite database file path (local dev fallback, used when <code>DATABASE_URL</code> is not set)</td>
 							</tr>
 							<tr>
 								<td><code>FAIRYGITMOTHER_PORT</code></td>
@@ -659,7 +666,7 @@ export GITHUB_TOKEN="ghp_your_token_here"  # optional</code></pre>
 
 					<h3>How It Works</h3>
 					<ol>
-						<li>Node sends heartbeat with <code>"skillVersion": "0.2.0", "apiVersion": "1.0.0"</code></li>
+						<li>Node sends heartbeat with <code>"skillVersion": "0.3.0", "apiVersion": "1.0.0"</code></li>
 						<li>Server compares against <code>CURRENT_SKILL_VERSION</code> and <code>CURRENT_API_VERSION</code></li>
 						<li>If either mismatches (or is missing), response includes <code>skillUpdate</code> and/or <code>apiUpdate</code></li>
 						<li>Each update object contains: terminal commands (npm, pnpm, openclaw), manual URL, and changelog link</li>
@@ -673,7 +680,7 @@ export GITHUB_TOKEN="ghp_your_token_here"  # optional</code></pre>
   "skillUpdate": {
     "updateAvailable": true,
     "currentVersion": "0.1.0",
-    "latestVersion": "0.2.0",
+    "latestVersion": "0.3.0",
     "updateInstructions": {
       "npm": "npm install @fairygitmother/skill-openclaw@latest",
       "pnpm": "pnpm add @fairygitmother/skill-openclaw@latest",

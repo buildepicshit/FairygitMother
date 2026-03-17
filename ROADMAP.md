@@ -30,9 +30,11 @@
 - [x] Stale reaper covers both `diff_submitted` and `in_review` bounties
 - [x] Claim endpoint uses apiKey in body (public path for agents)
 - [x] 202 tests, 0 failures, lint clean
+- [x] PostgreSQL support — uses PostgreSQL when `DATABASE_URL` is set, SQLite fallback for local dev. Azure PostgreSQL live. Database persists across deploys.
+- [x] Stats persistence — cumulative stats saved to JSON every 5 min, survives restarts
+- [x] 217 tests, 0 failures, lint clean
 
 ### Remaining
-- [ ] Persistent SQLite with WAL mode + Azure Files backup
 - [ ] Container mode hardening
   - [ ] Seccomp profile (restrict syscalls beyond no-new-privileges)
   - [ ] Read-only root filesystem in container
@@ -58,15 +60,24 @@
 
 ---
 
-## v0.3 — Multi-Agent & Skill Ecosystem
+## v0.3 — Multi-Agent, Skill Ecosystem & PR Pipeline (SHIPPED)
 
-**Goal:** More agents solving more issues. ClawHub publishing.
+**Goal:** More agents solving more issues. ClawHub publishing. Automated PR submission.
 
+### Shipped
+- [x] SKILL.md v0.3.0 — async agent cycles, credentials in `{baseDir}/credentials.json`, one heartbeat per activation, terse instructions
+- [x] PR auto-submit pipeline — consensus approval triggers fork via `fairygitmother-bot` PAT, branch creation, diff apply, PR with transparency disclosure
+- [x] Version handshake — `CURRENT_SKILL_VERSION=0.3.0`, `CURRENT_API_VERSION=1.0.0` checked on heartbeat
+- [x] Review dispatch priority — heartbeat returns `pendingReview` before `pendingBounty`
+- [x] `in_review` bounty status — set on first vote or heartbeat review dispatch
+- [x] Stats persistence — cumulative stats (tokens donated, PRs submitted) saved to JSON every 5 min, loaded on startup
+- [x] GitHub App created (App ID 3109694) — switched to PAT-based auth via `fairygitmother-bot` (GitHub Apps can't fork external repos)
+- [x] Ollama + Qwen3 14B installed locally as potential alternative to Gemini
+- [x] 217 tests, all passing
+
+### Remaining
 - [ ] Publish FairygitMother skill to ClawHub
-- [ ] Optimize SKILL.md for faster agent cycles (reduce prose, cache credentials across sessions)
 - [ ] Idle detection improvements (smarter activation, cooldown)
-- [x] ~~Review mode~~ — shipped in v0.2 (server-driven, not volunteer-based)
-- [x] ~~Auto-submit PR~~ — shipped (GitHub App, fork → branch → apply diff → commit → PR)
 - [ ] Bounty priority tuning (maintainer-set priority, language matching)
 - [ ] Node capabilities matching (match Python issues to Python-capable nodes)
 - [ ] Solver timeout handling (requeue bounty if node goes silent)
@@ -109,7 +120,7 @@
   - [ ] Node operators earn per merged fix (from Pro subscription revenue)
   - [ ] Transparent payout calculation based on tokens donated + fix quality
   - [ ] Stripe integration for payouts
-- [x] ~~GitHub App~~ — shipped (App ID 3109694, installation auth, PRs from FairygitMother App)
+- [x] ~~GitHub App~~ — shipped (App ID 3109694, but switched to PAT-based auth via fairygitmother-bot for forking)
 
 ---
 
@@ -117,7 +128,7 @@
 
 **Goal:** Handle thousands of nodes and bounties.
 
-- [ ] PostgreSQL option (replace SQLite for multi-instance)
+- [x] ~~PostgreSQL option~~ — shipped in v0.2 (dual PostgreSQL/SQLite, Azure PostgreSQL live)
 - [ ] Horizontal scaling (multiple orchestrator instances behind load balancer)
 - [ ] Redis for session state and pub/sub (replace in-memory feed)
 - [ ] Structured logging (JSON, ship to observability platform)

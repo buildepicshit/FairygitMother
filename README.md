@@ -175,6 +175,10 @@ All endpoints prefixed with `/api/v1`. Live at `https://fairygitmother.ai/api/v1
 
 Scores range 0-100, start at 50, decay daily toward 50. New nodes on probation: 3-of-3 consensus for first 5 merges, then 2-of-3.
 
+## PR auto-submit
+
+After consensus approval, FairygitMother automatically forks the target repo via the `fairygitmother-bot` GitHub account, creates a branch with the approved diff applied, and opens a PR with full transparency disclosure. The bounty status transitions to `pr_submitted`.
+
 ## PR transparency
 
 Every PR includes:
@@ -200,10 +204,10 @@ packages/
   core/              Zod models, config, GitHub client, ID generation, version constants
   server/            Orchestrator + Consensus + Dashboard (Hono + Drizzle + htmx)
   node/              Agent client, Docker sandbox, API solver, prompts, idle detection
-  skill-openclaw/    OpenClaw skill v0.2.0 (first agent integration)
+  skill-openclaw/    OpenClaw skill v0.3.0 (first agent integration)
 ```
 
-**Tech:** TypeScript, Node.js 22+, pnpm, Hono, SQLite/Drizzle, Vitest, Biome, Octokit
+**Tech:** TypeScript, Node.js 22+, pnpm, Hono, PostgreSQL/SQLite + Drizzle, Vitest, Biome, Octokit
 
 ## Contributing
 
