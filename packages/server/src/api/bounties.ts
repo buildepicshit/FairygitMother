@@ -5,7 +5,7 @@ import { z } from "zod";
 import { logAudit } from "../audit.js";
 import { scanDiff } from "../consensus/safety.js";
 import type { FairygitMotherDb } from "../db/client.js";
-import { bounties, repos, submissions } from "../db/schema.js";
+import { bounties, nodes, repos, submissions } from "../db/schema.js";
 import { enrichBountyContext } from "../orchestrator/enrich.js";
 import { dequeueAndAssign } from "../orchestrator/queue.js";
 import { findNodeByApiKey } from "../orchestrator/registry.js";
@@ -271,6 +271,16 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 				updatedAt: new Date().toISOString(),
 			})
 			.where(eq(bounties.id, bountyId));
+
+		// Increment solver's token donation count
+		if (parsed.data.tokensUsed && bounty.assignedNodeId) {
+			await db
+				.update(nodes)
+				.set({
+					totalTokensDonated: sql`${nodes.totalTokensDonated} + ${parsed.data.tokensUsed}`,
+				})
+				.where(eq(nodes.id, bounty.assignedNodeId));
+		}
 
 		emitEvent({
 			type: "fix_submitted",

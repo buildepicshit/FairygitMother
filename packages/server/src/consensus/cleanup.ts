@@ -1,8 +1,9 @@
 import type { GitHubClient } from "@fairygitmother/core";
 import { eq } from "drizzle-orm";
+import { pushToNode } from "../api/node-push.js";
 import { logAudit } from "../audit.js";
 import type { FairygitMotherDb } from "../db/client.js";
-import { bounties, consensusResults, submissions } from "../db/schema.js";
+import { bounties, consensusResults, nodes, submissions } from "../db/schema.js";
 
 /**
  * Check all bounties in `pr_submitted` status, query the upstream PR state,
@@ -61,7 +62,6 @@ export async function cleanupMergedPrs(
 
 			if (pr.merged) {
 				merged++;
-				// Apply reputation bonus for merged PR
 				const { applyReputationEvent } = await import("../orchestrator/reputation.js");
 				if (submission) {
 					await applyReputationEvent(db, submission.nodeId, "fix_merged");
@@ -72,6 +72,24 @@ export async function cleanupMergedPrs(
 					const { applyReputationEvent } = await import("../orchestrator/reputation.js");
 					await applyReputationEvent(db, submission.nodeId, "fix_closed");
 				}
+			}
+
+			// Notify the solver of the outcome (reinforcement feedback)
+			if (submission) {
+				const solverNode = (
+					await db.select().from(nodes).where(eq(nodes.id, submission.nodeId))
+				)[0];
+				pushToNode(submission.nodeId, {
+					type: pr.merged ? "fix_merged" : "fix_closed",
+					bountyId: bounty.id,
+					owner: bounty.owner,
+					repo: bounty.repo,
+					issueNumber: bounty.issueNumber,
+					issueTitle: bounty.issueTitle,
+					prUrl: consensus.consensus_results.prUrl,
+					reputationDelta: pr.merged ? 5 : -3,
+					newReputationScore: solverNode?.reputationScore ?? null,
+				});
 			}
 
 			await logAudit(db, "pr_cleanup", bounty.id, {

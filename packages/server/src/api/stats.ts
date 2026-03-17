@@ -75,12 +75,23 @@ export async function getGridStats(db: FairygitMotherDb): Promise<GridStats> {
 				.where(eq(consensusResults.outcome, "approved"))
 		)[0]?.count ?? 0;
 
-	const tokenSum =
+	const nodeTokenSum =
 		(
 			await db
 				.select({ total: sql<number>`COALESCE(SUM(${nodes.totalTokensDonated}), 0)::int` })
 				.from(nodes)
 		)[0]?.total ?? 0;
+
+	// Also sum from submissions table as a floor — catches tokens that were
+	// recorded in submissions but never promoted to node counters
+	const submissionTokenSum =
+		(
+			await db
+				.select({ total: sql<number>`COALESCE(SUM(${submissions.tokensUsed}), 0)::int` })
+				.from(submissions)
+		)[0]?.total ?? 0;
+
+	const tokenSum = Math.max(nodeTokenSum, submissionTokenSum);
 
 	const avgSolve =
 		(

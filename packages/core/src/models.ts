@@ -11,6 +11,8 @@ export const BountyStatusSchema = z.enum([
 	"approved",
 	"rejected",
 	"pr_submitted",
+	"pr_merged",
+	"pr_closed",
 ]);
 export type BountyStatus = z.infer<typeof BountyStatusSchema>;
 
