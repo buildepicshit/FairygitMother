@@ -17,7 +17,7 @@ export interface RegisterNodeResponse {
 
 // ── Versioning ────────────────────────────────────────────────
 
-export const CURRENT_SKILL_VERSION = "0.4.0";
+export const CURRENT_SKILL_VERSION = "0.5.0";
 export const CURRENT_API_VERSION = "1.0.0";
 
 export interface VersionUpdateInfo {
@@ -78,6 +78,7 @@ export const SubmitFixRequestSchema = z.object({
 	testsPassed: z.boolean().nullable().default(null),
 	tokensUsed: z.number().int().nullable().default(null),
 	solverBackend: z.string(),
+	modelId: z.string().nullable().optional(),
 	solveDurationMs: z.number().int().min(0),
 });
 export type SubmitFixRequest = z.infer<typeof SubmitFixRequestSchema>;

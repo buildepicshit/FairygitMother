@@ -85,6 +85,7 @@ export const submissions = pgTable("submissions", {
 	testsPassed: boolean("tests_passed"),
 	tokensUsed: integer("tokens_used"),
 	solverBackend: text("solver_backend").notNull(),
+	modelId: text("model_id"),
 	solveDurationMs: integer("solve_duration_ms").notNull(),
 	submittedAt: text("submitted_at")
 		.notNull()

@@ -44,6 +44,10 @@ export async function runMigrations(connectionString: string, migrationsDir: str
 		await applyMigration(client, migrationsDir, 5, "0005_add_file_context.sql");
 	}
 
+	if (version < 6) {
+		await applyMigration(client, migrationsDir, 6, "0006_add_model_id.sql");
+	}
+
 	await client.end();
 }
 

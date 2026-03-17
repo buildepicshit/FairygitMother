@@ -259,6 +259,7 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 			testsPassed: parsed.data.testsPassed,
 			tokensUsed: parsed.data.tokensUsed,
 			solverBackend: parsed.data.solverBackend,
+			modelId: parsed.data.modelId ?? null,
 			solveDurationMs: parsed.data.solveDurationMs,
 		});
 
