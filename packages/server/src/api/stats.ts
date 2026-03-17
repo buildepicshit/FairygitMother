@@ -32,7 +32,8 @@ export async function getGridStats(db: FairygitMotherDb): Promise<GridStats> {
 				.where(ne(nodes.status, "offline"))
 		)[0]?.count ?? 0;
 
-	const totalNodes = (await db.select({ count: sql<number>`count(*)::int` }).from(nodes))[0]?.count ?? 0;
+	const totalNodes =
+		(await db.select({ count: sql<number>`count(*)::int` }).from(nodes))[0]?.count ?? 0;
 
 	const queueDepth =
 		(

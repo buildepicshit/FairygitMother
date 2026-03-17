@@ -110,7 +110,10 @@ export async function pruneStaleNodes(db: FairygitMotherDb, timeoutMs: number): 
 
 export async function getActiveNodeCount(db: FairygitMotherDb): Promise<number> {
 	const result = (
-		await db.select({ count: sql<number>`count(*)::int` }).from(nodes).where(ne(nodes.status, "offline"))
+		await db
+			.select({ count: sql<number>`count(*)::int` })
+			.from(nodes)
+			.where(ne(nodes.status, "offline"))
 	)[0];
 	return result?.count ?? 0;
 }
