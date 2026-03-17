@@ -1,7 +1,7 @@
 import type { FairygitMotherConfig } from "@fairygitmother/core";
 import { and, eq, gte, sql } from "drizzle-orm";
 import type { FairygitMotherDb } from "../db/client.js";
-import { bounties, consensusResults, repos } from "../db/schema.js";
+import { bounties, consensusResults, repos, submissions } from "../db/schema.js";
 
 // ── Blocked patterns for diff safety ───────────────────────────
 
@@ -72,13 +72,8 @@ export async function canSubmitPrForRepo(
 		await db
 			.select({ count: sql<number>`count(*)::int` })
 			.from(consensusResults)
-			.innerJoin(
-				bounties,
-				eq(
-					consensusResults.submissionId,
-					sql`(SELECT id FROM submissions WHERE bounty_id = ${bounties.id} LIMIT 1)`,
-				),
-			)
+			.innerJoin(submissions, eq(consensusResults.submissionId, submissions.id))
+			.innerJoin(bounties, eq(submissions.bountyId, bounties.id))
 			.where(
 				and(
 					eq(bounties.owner, owner),

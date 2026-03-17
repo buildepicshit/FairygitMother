@@ -1,9 +1,11 @@
+import { loadConfig } from "@fairygitmother/core";
 import type { GitHubClient } from "@fairygitmother/core";
 import { eq } from "drizzle-orm";
 import { emitEvent } from "../api/feed.js";
 import { logAudit } from "../audit.js";
 import type { FairygitMotherDb } from "../db/client.js";
 import { bounties, consensusResults, submissions } from "../db/schema.js";
+import { canSubmitPrForRepo } from "../orchestrator/governor.js";
 import { applyPatch, parseDiff } from "./diff.js";
 
 export interface PrSubmission {
@@ -12,8 +14,8 @@ export interface PrSubmission {
 }
 
 export function buildPrBody(
-	_bountyOwner: string,
-	_bountyRepo: string,
+	_owner: string,
+	_repo: string,
 	issueNumber: number,
 	explanation: string,
 	solverNodeId: string,
@@ -66,6 +68,24 @@ export async function submitPr(
 
 	const bounty = (await db.select().from(bounties).where(eq(bounties.id, submission.bountyId)))[0];
 	if (!bounty) return null;
+
+	// Enforce per-repo daily PR rate limit
+	const config = loadConfig();
+	const canSubmit = await canSubmitPrForRepo(
+		db,
+		bounty.owner,
+		bounty.repo,
+		config.maxPrsPerRepoPerDay,
+	);
+	if (!canSubmit) {
+		console.log(`[submitter] PR rate limit reached for ${bounty.owner}/${bounty.repo}, skipping`);
+		await logAudit(db, "pr_rate_limited", submissionId, {
+			bountyId: bounty.id,
+			owner: bounty.owner,
+			repo: bounty.repo,
+		});
+		return null;
+	}
 
 	const branchName = `fairygitmother/fix-${bounty.issueNumber}-${submission.id.slice(0, 8)}`;
 

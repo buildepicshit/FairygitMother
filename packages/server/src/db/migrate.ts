@@ -20,20 +20,33 @@ export async function runMigrations(connectionString: string, migrationsDir: str
 	const version = result.rows[0]?.v ?? 0;
 
 	if (version < 1) {
-		const migrationFile = join(migrationsDir, "0001_initial_pg.sql");
-		const sql = readFileSync(migrationFile, "utf-8");
-		await client.query(sql);
-		await client.query("INSERT INTO schema_version (version) VALUES ($1)", [1]);
-		console.log("[migrations] Applied PostgreSQL migration 0001_initial_pg.sql");
+		await applyMigration(client, migrationsDir, 1, "0001_initial_pg.sql");
 	}
 
 	if (version < 2) {
-		const migrationFile = join(migrationsDir, "0002_add_indexes_and_constraints.sql");
-		const sql = readFileSync(migrationFile, "utf-8");
-		await client.query(sql);
-		await client.query("INSERT INTO schema_version (version) VALUES ($1)", [2]);
-		console.log("[migrations] Applied PostgreSQL migration 0002_add_indexes_and_constraints.sql");
+		await applyMigration(client, migrationsDir, 2, "0002_add_indexes_and_constraints.sql");
 	}
 
 	await client.end();
+}
+
+async function applyMigration(
+	client: pg.Client,
+	migrationsDir: string,
+	version: number,
+	filename: string,
+) {
+	const migrationFile = join(migrationsDir, filename);
+	const sql = readFileSync(migrationFile, "utf-8");
+
+	await client.query("BEGIN");
+	try {
+		await client.query(sql);
+		await client.query("INSERT INTO schema_version (version) VALUES ($1)", [version]);
+		await client.query("COMMIT");
+		console.log(`[migrations] Applied PostgreSQL migration ${filename}`);
+	} catch (err) {
+		await client.query("ROLLBACK");
+		throw err;
+	}
 }

@@ -6,7 +6,7 @@ import { setStatsBaseline } from "./api/stats.js";
 import { createApp } from "./app.js";
 import type { PrSubmitContext } from "./consensus/aggregator.js";
 import { cleanupMergedPrs } from "./consensus/cleanup.js";
-import { getDb } from "./db/client.js";
+import { closeDb, getDb } from "./db/client.js";
 import { runMigrations } from "./db/migrate.js";
 import { requeueStaleBounties, requeueStaleDiffs } from "./orchestrator/queue.js";
 import { pruneStaleNodes } from "./orchestrator/registry.js";
@@ -132,6 +132,7 @@ async function shutdown(signal: string) {
 	console.log(`\n[fairygitmother] ${signal} received, shutting down...`);
 	await savePersistedStats(statsPath, db, persistedStats);
 	stopAll();
+	closeDb();
 	process.exit(0);
 }
 process.on("SIGINT", () => shutdown("SIGINT"));
