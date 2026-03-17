@@ -27,6 +27,15 @@ export async function runMigrations(connectionString: string, migrationsDir: str
 		await applyMigration(client, migrationsDir, 2, "0002_add_indexes_and_constraints.sql");
 	}
 
+	if (version < 3) {
+		await applyMigration(
+			client,
+			migrationsDir,
+			3,
+			"0003_consensus_unique_and_submission_limit.sql",
+		);
+	}
+
 	await client.end();
 }
 

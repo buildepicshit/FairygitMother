@@ -48,7 +48,7 @@ export function attachWebSocketHandler(
 				const url = new URL(request.url ?? "/", `http://${request.headers.host}`);
 
 				if (url.pathname !== "/api/v1/feed") {
-					socket.destroy();
+					// Don't destroy — other handlers (node-push) may claim this path
 					return;
 				}
 
@@ -95,8 +95,4 @@ export function attachWebSocketHandler(
 		.catch((err) => {
 			console.warn("[websocket] 'ws' package not available — WebSocket feed disabled.", err);
 		});
-}
-
-export function getActiveSocketCount(): number {
-	return activeSockets.size;
 }

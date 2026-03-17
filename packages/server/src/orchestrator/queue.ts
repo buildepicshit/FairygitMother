@@ -33,23 +33,26 @@ export async function dequeueForNode(
 
 	const nodeCapabilities = node.capabilities as { languages: string[]; tools: string[] };
 
-	// Get highest priority queued bounty matching node capabilities
-	const allQueued = await db
+	// Build WHERE conditions — push language filtering to DB
+	const conditions = [eq(bounties.status, "queued")];
+	if (nodeCapabilities.languages.length > 0) {
+		// Match bounties with no language OR bounties matching node's languages
+		conditions.push(
+			sql`(${bounties.language} IS NULL OR ${bounties.language} IN (${sql.join(
+				nodeCapabilities.languages.map((l) => sql`${l}`),
+				sql`, `,
+			)}))`,
+		);
+	}
+
+	const candidates = await db
 		.select()
 		.from(bounties)
-		.where(eq(bounties.status, "queued"))
-		.orderBy(asc(bounties.priority), asc(bounties.complexityEstimate));
+		.where(and(...conditions))
+		.orderBy(asc(bounties.priority), asc(bounties.complexityEstimate))
+		.limit(20);
 
-	for (const bounty of allQueued) {
-		// Check language match if node has language preferences
-		if (
-			nodeCapabilities.languages.length > 0 &&
-			bounty.language &&
-			!nodeCapabilities.languages.includes(bounty.language)
-		) {
-			continue;
-		}
-
+	for (const bounty of candidates) {
 		// Check repo isn't blacklisted
 		const repo = (
 			await db
@@ -101,6 +104,18 @@ export async function dequeueAndAssign(
 ): Promise<QueuedBounty | null> {
 	const bounty = await dequeueForNode(db, nodeId);
 	if (!bounty) return null;
+
+	// Validate issue is still open on GitHub before assigning
+	const issueOpen = await isGitHubIssueOpen(bounty.owner, bounty.repo, bounty.issueNumber);
+	if (!issueOpen) {
+		// Issue was closed/resolved externally — remove from queue
+		await db
+			.update(bounties)
+			.set({ status: "rejected", updatedAt: new Date().toISOString() })
+			.where(eq(bounties.id, bounty.id));
+		if (_retries >= MAX_CLAIM_RETRIES) return null;
+		return dequeueAndAssign(db, nodeId, _retries + 1);
+	}
 
 	// Atomic claim: only succeeds if bounty is still queued
 	const claimed = await db
@@ -173,6 +188,29 @@ export async function requeueStaleDiffs(
 	}
 
 	return stale.length;
+}
+
+/**
+ * Lightweight check if a GitHub issue is still open.
+ * Uses the public API (no auth needed for public repos, 60 req/hr).
+ * Returns true if open or if the check fails (fail-open to not block assignments).
+ */
+async function isGitHubIssueOpen(
+	owner: string,
+	repo: string,
+	issueNumber: number,
+): Promise<boolean> {
+	try {
+		const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`, {
+			headers: { Accept: "application/vnd.github.v3+json", "User-Agent": "FairygitMother" },
+			signal: AbortSignal.timeout(5000),
+		});
+		if (!res.ok) return true; // Fail-open: don't block on API errors
+		const data = (await res.json()) as { state: string };
+		return data.state === "open";
+	} catch {
+		return true; // Fail-open: network errors don't block assignments
+	}
 }
 
 export async function getQueueDepth(db: FairygitMotherDb): Promise<number> {

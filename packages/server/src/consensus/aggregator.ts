@@ -88,16 +88,15 @@ export async function recordConsensus(
 			.where(eq(bounties.id, submission.bountyId));
 
 		// Apply reputation events
+		// Note: fix_merged/fix_closed reputation is applied in cleanup.ts when
+		// the actual GitHub PR is confirmed merged/closed — not here at consensus time.
 		if (outcome === "approved") {
-			await applyReputationEvent(db, submission.nodeId, "fix_merged");
 			await db
 				.update(nodes)
 				.set({
 					totalBountiesSolved: sql`${nodes.totalBountiesSolved} + 1`,
 				})
 				.where(eq(nodes.id, submission.nodeId));
-		} else if (outcome === "rejected") {
-			await applyReputationEvent(db, submission.nodeId, "fix_closed");
 		}
 
 		// Reward accurate reviewers

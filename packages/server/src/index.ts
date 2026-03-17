@@ -10,7 +10,7 @@ import type { PrSubmitContext } from "./consensus/aggregator.js";
 import { cleanupMergedPrs } from "./consensus/cleanup.js";
 import { closeDb, getDb } from "./db/client.js";
 import { runMigrations } from "./db/migrate.js";
-import { requeueStaleBounties, requeueStaleDiffs } from "./orchestrator/queue.js";
+import { requeueStaleBounties } from "./orchestrator/queue.js";
 import { pruneStaleNodes } from "./orchestrator/registry.js";
 import { scheduleTask, stopAll } from "./orchestrator/scheduler.js";
 import { loadPersistedStats, savePersistedStats } from "./stats-persistence.js";
@@ -75,25 +75,30 @@ scheduleTask(
 	60_000,
 );
 
-// Requeue bounties stuck in "assigned" for >10 minutes (agent went silent)
+// Requeue bounties stuck in "assigned" for >30 minutes (agent went silent)
 scheduleTask(
 	"requeue-stale-bounties",
 	async () => {
-		const requeued = await requeueStaleBounties(db, 10 * 60_000);
+		const requeued = await requeueStaleBounties(db, 30 * 60_000);
 		if (requeued > 0) console.log(`[scheduler] Requeued ${requeued} stale assigned bounties`);
 	},
-	120_000,
+	600_000,
 );
 
-// Requeue bounties stuck in "diff_submitted" for >30 minutes (no reviewers available)
-scheduleTask(
-	"requeue-stale-diffs",
-	async () => {
-		const requeued = await requeueStaleDiffs(db, 30 * 60_000);
-		if (requeued > 0) console.log(`[scheduler] Requeued ${requeued} stale diff_submitted bounties`);
-	},
-	300_000,
-);
+// Retry PR submission for approved bounties that failed the first time
+if (prContext) {
+	const { github: retryGitHub, forkOwner: retryForkOwner } = prContext;
+	scheduleTask(
+		"retry-approved-prs",
+		async () => {
+			const { retryApprovedPrs } = await import("./consensus/retry.js");
+			const retried = await retryApprovedPrs(db, retryGitHub, retryForkOwner);
+			if (retried > 0)
+				console.log(`[scheduler] Retried PR submission for ${retried} approved bounties`);
+		},
+		900_000, // Every 15 minutes
+	);
+}
 
 // Clean up merged/closed PRs and delete fork branches every 10 minutes
 if (prContext) {

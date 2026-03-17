@@ -66,7 +66,7 @@ const issues = [
 		issueNumber: 107,
 		issueTitle: "Narrow secret pattern regex to reduce false positives in diff safety scanner",
 		issueBody:
-			"packages/server/src/orchestrator/governor.ts:9 — The pattern `/(?:password|secret|api_key|token)\\s*[:=]\\s*['\"][^'\"]+['\"]/i` blocks any diff touching `const secretMessage = \"hello\"` or `const tokenizer = \"...\"`. Tighten to require the matched word to be a standalone identifier (word boundary) and the value to look like a credential (min length, entropy check, or known prefixes like sk-, ghp_, etc.).",
+			'packages/server/src/orchestrator/governor.ts:9 — The pattern `/(?:password|secret|api_key|token)\\s*[:=]\\s*[\'"][^\'"]+[\'"]/i` blocks any diff touching `const secretMessage = "hello"` or `const tokenizer = "..."`. Tighten to require the matched word to be a standalone identifier (word boundary) and the value to look like a credential (min length, entropy check, or known prefixes like sk-, ghp_, etc.).',
 		labels: ["good first issue", "bug"],
 		language: "TypeScript",
 		complexity: 2,

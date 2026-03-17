@@ -237,7 +237,8 @@ describe("E2E: FairygitMother bounty lifecycle", () => {
 			const solverNode = (
 				await db.select().from(schema.nodes).where(eq(schema.nodes.id, solver.nodeId))
 			)[0];
-			expect(solverNode?.reputationScore).toBe(55); // 50 + 5
+			// Solver reputation is applied at PR merge (cleanup scheduler), not at consensus
+			expect(solverNode?.reputationScore).toBe(50);
 			expect(solverNode?.totalBountiesSolved).toBe(6); // 5 (lifted) + 1
 
 			// Verify reviewer stats updated
@@ -319,7 +320,8 @@ describe("E2E: FairygitMother bounty lifecycle", () => {
 			const solverNode = (
 				await db.select().from(schema.nodes).where(eq(schema.nodes.id, solver.nodeId))
 			)[0];
-			expect(solverNode?.reputationScore).toBe(47); // 50 - 3
+			// Solver reputation is applied at PR close (cleanup scheduler), not at consensus
+			expect(solverNode?.reputationScore).toBe(50);
 
 			// Verify reviewers got accurate review bonus (+2)
 			const r1 = (

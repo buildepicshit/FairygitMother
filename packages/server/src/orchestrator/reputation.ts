@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { FairygitMotherDb } from "../db/client.js";
 import { nodes } from "../db/schema.js";
 
@@ -25,13 +25,14 @@ export async function applyReputationEvent(
 	nodeId: string,
 	event: ReputationEvent,
 ) {
-	const node = (await db.select().from(nodes).where(eq(nodes.id, nodeId)))[0];
-	if (!node) return;
-
 	const delta = SCORE_DELTAS[event];
-	const newScore = Math.min(MAX_SCORE, Math.max(MIN_SCORE, node.reputationScore + delta));
-
-	await db.update(nodes).set({ reputationScore: newScore }).where(eq(nodes.id, nodeId));
+	// Atomic: no read-modify-write race
+	await db
+		.update(nodes)
+		.set({
+			reputationScore: sql`LEAST(${MAX_SCORE}, GREATEST(${MIN_SCORE}, ${nodes.reputationScore} + ${delta}))`,
+		})
+		.where(eq(nodes.id, nodeId));
 }
 
 export async function applyDailyDecay(db: FairygitMotherDb) {

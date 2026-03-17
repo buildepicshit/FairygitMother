@@ -1,5 +1,5 @@
 import { SubmitFixRequestSchema, generateId } from "@fairygitmother/core";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { logAudit } from "../audit.js";
@@ -216,6 +216,15 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 			return c.json({ error: "Only the assigned node can submit a fix for this bounty" }, 403);
 		}
 
+		// Enforce submission attempt limit
+		const MAX_SUBMISSIONS = 3;
+		if (bounty.submissionCount >= MAX_SUBMISSIONS) {
+			return c.json(
+				{ error: `Maximum ${MAX_SUBMISSIONS} submission attempts reached for this bounty` },
+				429,
+			);
+		}
+
 		// Safety scan
 		const safety = scanDiff(parsed.data.diff, parsed.data.filesChanged);
 		if (!safety.safe) {
@@ -241,7 +250,11 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 
 		await db
 			.update(bounties)
-			.set({ status: "diff_submitted", updatedAt: new Date().toISOString() })
+			.set({
+				status: "diff_submitted",
+				submissionCount: sql`${bounties.submissionCount} + 1`,
+				updatedAt: new Date().toISOString(),
+			})
 			.where(eq(bounties.id, bountyId));
 
 		emitEvent({

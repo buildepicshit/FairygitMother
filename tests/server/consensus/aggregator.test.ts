@@ -191,7 +191,7 @@ describe("consensus aggregator", () => {
 			expect(results.length).toBe(1);
 		});
 
-		it("applies reputation on rejection", async () => {
+		it("does not apply solver reputation at consensus time (deferred to cleanup)", async () => {
 			const { submissionId, solverId, reviewerIds } = await setupScenario(db);
 
 			for (let i = 0; i < 2; i++) {
@@ -207,8 +207,9 @@ describe("consensus aggregator", () => {
 
 			await recordConsensus(db, submissionId, "rejected");
 
+			// Solver reputation is NOT applied at consensus — it happens at PR merge/close in cleanup
 			const solver = (await db.select().from(schema.nodes).where(eq(schema.nodes.id, solverId)))[0];
-			expect(solver?.reputationScore).toBeLessThan(50); // fix_closed: -3
+			expect(solver?.reputationScore).toBe(50);
 		});
 	});
 });

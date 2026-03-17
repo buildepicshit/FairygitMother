@@ -40,6 +40,7 @@ export const bounties = pgTable("bounties", {
 	assignedNodeId: text("assigned_node_id"),
 	priority: integer("priority").notNull().default(50),
 	retryCount: integer("retry_count").notNull().default(0),
+	submissionCount: integer("submission_count").notNull().default(0),
 	createdAt: text("created_at")
 		.notNull()
 		.$defaultFn(() => new Date().toISOString()),
@@ -115,6 +116,7 @@ export const consensusResults = pgTable("consensus_results", {
 	id: text("id").primaryKey(),
 	submissionId: text("submission_id")
 		.notNull()
+		.unique()
 		.references(() => submissions.id),
 	outcome: text("outcome").notNull(),
 	approveCount: integer("approve_count").notNull().default(0),
