@@ -13,6 +13,7 @@ export function getDb(connectionString: string): FairygitMotherDb {
 			connectionString,
 			ssl: connectionString.includes("azure") ? { rejectUnauthorized: false } : undefined,
 			max: 10,
+			connectionTimeoutMillis: 10_000,
 		});
 		_pgPool.on("error", (err) => {
 			console.error("[db] Idle pool client error:", err.message);
