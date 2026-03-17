@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import * as schema from "@fairygitmother/server/db/schema.js";
 import {
 	findNodeByApiKey,
@@ -11,28 +9,37 @@ import {
 	registerNode,
 	removeNode,
 } from "@fairygitmother/server/orchestrator/registry.js";
-import Database from "better-sqlite3";
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
 import { beforeEach, describe, expect, it } from "vitest";
 
+const TEST_DB_URL =
+	process.env.DATABASE_URL ??
+	"postgresql://fgmadmin:FgM_2026!SecureDb@fgm-db.postgres.database.azure.com:5432/fairygitmother?sslmode=require";
+
 function createTestDb() {
-	const sqlite = new Database(":memory:");
-	sqlite.pragma("journal_mode = WAL");
-	sqlite.pragma("foreign_keys = ON");
-	const migration = readFileSync(
-		resolve(import.meta.dirname, "../../../migrations/0001_initial.sql"),
-		"utf-8",
-	);
-	sqlite.exec(migration);
-	return drizzle(sqlite, { schema });
+	const pool = new pg.Pool({
+		connectionString: TEST_DB_URL,
+		ssl: TEST_DB_URL.includes("azure") ? { rejectUnauthorized: false } : undefined,
+		max: 5,
+	});
+	return drizzle(pool, { schema });
 }
 
 describe("registry", () => {
 	let db: ReturnType<typeof createTestDb>;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		db = createTestDb();
+		// Clean tables for test isolation
+		await db.delete(schema.auditLog);
+		await db.delete(schema.consensusResults);
+		await db.delete(schema.votes);
+		await db.delete(schema.submissions);
+		await db.delete(schema.bounties);
+		await db.delete(schema.nodes);
+		await db.delete(schema.repos);
 	});
 
 	describe("registerNode", () => {
@@ -102,11 +109,11 @@ describe("registry", () => {
 			const low = await registerNode(db, "LowRep", { languages: [], tools: [] }, "test");
 			const high = await registerNode(db, "HighRep", { languages: [], tools: [] }, "test");
 			// Manually set reputation
-			db.update(schema.nodes)
+			await db
+				.update(schema.nodes)
 				.set({ reputationScore: 80 })
-				.where(eq(schema.nodes.id, high.id))
-				.run();
-			db.update(schema.nodes).set({ reputationScore: 20 }).where(eq(schema.nodes.id, low.id)).run();
+				.where(eq(schema.nodes.id, high.id));
+			await db.update(schema.nodes).set({ reputationScore: 20 }).where(eq(schema.nodes.id, low.id));
 
 			const match = await matchBountyToNode(db, null);
 			expect(match).toBe(high.id);
@@ -118,10 +125,10 @@ describe("registry", () => {
 			const result = await registerNode(db, null, { languages: [], tools: [] }, "test");
 			// Set heartbeat to 5 minutes ago
 			const oldTime = new Date(Date.now() - 300_000).toISOString();
-			db.update(schema.nodes)
+			await db
+				.update(schema.nodes)
 				.set({ lastHeartbeat: oldTime })
-				.where(eq(schema.nodes.id, result.id))
-				.run();
+				.where(eq(schema.nodes.id, result.id));
 
 			const pruned = await pruneStaleNodes(db, 120_000); // 2 min timeout
 			expect(pruned).toBe(1);

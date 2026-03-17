@@ -1,22 +1,21 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { generateId } from "@fairygitmother/core";
 import { createApp } from "@fairygitmother/server/app.js";
 import * as schema from "@fairygitmother/server/db/schema.js";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
 import { beforeEach, describe, expect, it } from "vitest";
 
+const TEST_DB_URL =
+	process.env.DATABASE_URL ??
+	"postgresql://fgmadmin:FgM_2026!SecureDb@fgm-db.postgres.database.azure.com:5432/fairygitmother?sslmode=require";
+
 function createTestDb() {
-	const sqlite = new Database(":memory:");
-	sqlite.pragma("journal_mode = WAL");
-	sqlite.pragma("foreign_keys = ON");
-	const migration = readFileSync(
-		resolve(import.meta.dirname, "../../../migrations/0001_initial.sql"),
-		"utf-8",
-	);
-	sqlite.exec(migration);
-	return drizzle(sqlite, { schema });
+	const pool = new pg.Pool({
+		connectionString: TEST_DB_URL,
+		ssl: TEST_DB_URL.includes("azure") ? { rejectUnauthorized: false } : undefined,
+		max: 5,
+	});
+	return drizzle(pool, { schema });
 }
 
 async function registerNode(app: ReturnType<typeof createApp>) {
@@ -39,9 +38,17 @@ describe("bounties API", () => {
 	let db: ReturnType<typeof createTestDb>;
 	let app: ReturnType<typeof createApp>;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		db = createTestDb();
 		app = createApp(db);
+		// Clean tables for test isolation
+		await db.delete(schema.auditLog);
+		await db.delete(schema.consensusResults);
+		await db.delete(schema.votes);
+		await db.delete(schema.submissions);
+		await db.delete(schema.bounties);
+		await db.delete(schema.nodes);
+		await db.delete(schema.repos);
 	});
 
 	describe("POST /api/v1/bounties", () => {
@@ -184,19 +191,17 @@ describe("bounties API", () => {
 
 			// Create a bounty directly in DB
 			const bountyId = generateId("bty");
-			db.insert(schema.bounties)
-				.values({
-					id: bountyId,
-					owner: "org",
-					repo: "repo",
-					issueNumber: 1,
-					issueTitle: "Bug",
-					issueBody: "",
-					labels: [],
-					status: "assigned",
-					assignedNodeId: nodeId,
-				})
-				.run();
+			await db.insert(schema.bounties).values({
+				id: bountyId,
+				owner: "org",
+				repo: "repo",
+				issueNumber: 1,
+				issueTitle: "Bug",
+				issueBody: "",
+				labels: [],
+				status: "assigned",
+				assignedNodeId: nodeId,
+			});
 
 			const res = await app.request(`/api/v1/bounties/${bountyId}/submit`, {
 				method: "POST",

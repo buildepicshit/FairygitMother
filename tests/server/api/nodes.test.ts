@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import {
 	CURRENT_API_VERSION,
 	CURRENT_SKILL_VERSION,
@@ -8,21 +6,22 @@ import {
 } from "@fairygitmother/core";
 import { createApp } from "@fairygitmother/server/app.js";
 import * as schema from "@fairygitmother/server/db/schema.js";
-import Database from "better-sqlite3";
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
 import { beforeEach, describe, expect, it } from "vitest";
 
+const TEST_DB_URL =
+	process.env.DATABASE_URL ??
+	"postgresql://fgmadmin:FgM_2026!SecureDb@fgm-db.postgres.database.azure.com:5432/fairygitmother?sslmode=require";
+
 function createTestDb() {
-	const sqlite = new Database(":memory:");
-	sqlite.pragma("journal_mode = WAL");
-	sqlite.pragma("foreign_keys = ON");
-	const migration = readFileSync(
-		resolve(import.meta.dirname, "../../../migrations/0001_initial.sql"),
-		"utf-8",
-	);
-	sqlite.exec(migration);
-	return drizzle(sqlite, { schema });
+	const pool = new pg.Pool({
+		connectionString: TEST_DB_URL,
+		ssl: TEST_DB_URL.includes("azure") ? { rejectUnauthorized: false } : undefined,
+		max: 5,
+	});
+	return drizzle(pool, { schema });
 }
 
 async function registerNode(app: ReturnType<typeof createApp>) {
@@ -45,9 +44,17 @@ describe("nodes API", () => {
 	let db: ReturnType<typeof createTestDb>;
 	let app: ReturnType<typeof createApp>;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		db = createTestDb();
 		app = createApp(db);
+		// Clean tables for test isolation
+		await db.delete(schema.auditLog);
+		await db.delete(schema.consensusResults);
+		await db.delete(schema.votes);
+		await db.delete(schema.submissions);
+		await db.delete(schema.bounties);
+		await db.delete(schema.nodes);
+		await db.delete(schema.repos);
 	});
 
 	describe("POST /api/v1/nodes/register", () => {
@@ -209,68 +216,60 @@ describe("nodes API", () => {
 	});
 
 	describe("review dispatch priority", () => {
-		function createSolverWithSubmission() {
+		async function createSolverWithSubmission() {
 			// Create a solver node directly in DB
 			const solverId = generateId("node");
-			db.insert(schema.nodes)
-				.values({
-					id: solverId,
-					apiKey: generateApiKey(),
-					capabilities: { languages: [], tools: [] },
-					solverBackend: "test",
-					totalBountiesSolved: 10,
-				})
-				.run();
+			await db.insert(schema.nodes).values({
+				id: solverId,
+				apiKey: generateApiKey(),
+				capabilities: { languages: [], tools: [] },
+				solverBackend: "test",
+				totalBountiesSolved: 10,
+			});
 
 			// Create a bounty in diff_submitted state
 			const bountyId = generateId("bty");
-			db.insert(schema.bounties)
-				.values({
-					id: bountyId,
-					owner: "org",
-					repo: "repo",
-					issueNumber: 1,
-					issueTitle: "Fix bug",
-					issueBody: "It's broken",
-					labels: [],
-					status: "diff_submitted",
-				})
-				.run();
+			await db.insert(schema.bounties).values({
+				id: bountyId,
+				owner: "org",
+				repo: "repo",
+				issueNumber: 1,
+				issueTitle: "Fix bug",
+				issueBody: "It's broken",
+				labels: [],
+				status: "diff_submitted",
+			});
 
 			// Create a submission
 			const submissionId = generateId("sub");
-			db.insert(schema.submissions)
-				.values({
-					id: submissionId,
-					bountyId,
-					nodeId: solverId,
-					diff: "+fix",
-					explanation: "Fixed the bug",
-					filesChanged: ["file.ts"],
-					solverBackend: "test",
-					solveDurationMs: 5000,
-				})
-				.run();
+			await db.insert(schema.submissions).values({
+				id: submissionId,
+				bountyId,
+				nodeId: solverId,
+				diff: "+fix",
+				explanation: "Fixed the bug",
+				filesChanged: ["file.ts"],
+				solverBackend: "test",
+				solveDurationMs: 5000,
+			});
 
 			return { solverId, bountyId, submissionId };
 		}
 
 		it("returns pendingReview over pendingBounty when both available", async () => {
-			const { submissionId } = createSolverWithSubmission();
+			const { submissionId } = await createSolverWithSubmission();
 
 			// Create a second bounty that's queued (available for solving)
-			db.insert(schema.bounties)
-				.values({
-					id: generateId("bty"),
-					owner: "org2",
-					repo: "repo2",
-					issueNumber: 2,
-					issueTitle: "Another bug",
-					issueBody: "Also broken",
-					labels: [],
-					status: "queued",
-				})
-				.run();
+			await db.insert(schema.bounties).values({
+				id: generateId("bty"),
+				owner: "org2",
+				repo: "repo2",
+				issueNumber: 2,
+				issueTitle: "Another bug",
+				issueBody: "Also broken",
+				labels: [],
+				status: "queued",
+			});
 
 			// Register a reviewer node via API
 			const { nodeId, apiKey } = await registerNode(app);
@@ -295,10 +294,12 @@ describe("nodes API", () => {
 		});
 
 		it("does not assign solver to review their own submission", async () => {
-			const { solverId } = createSolverWithSubmission();
+			const { solverId } = await createSolverWithSubmission();
 
 			// Get the solver's apiKey from DB
-			const solverNode = db.select().from(schema.nodes).where(eq(schema.nodes.id, solverId)).get();
+			const solverNode = (
+				await db.select().from(schema.nodes).where(eq(schema.nodes.id, solverId))
+			)[0];
 
 			// Solver heartbeats — should NOT get their own submission as a review
 			const res = await app.request(`/api/v1/nodes/${solverId}/heartbeat`, {
@@ -320,7 +321,7 @@ describe("nodes API", () => {
 		});
 
 		it("transitions bounty to in_review when dispatched via heartbeat", async () => {
-			const { bountyId } = createSolverWithSubmission();
+			const { bountyId } = await createSolverWithSubmission();
 
 			const { nodeId, apiKey } = await registerNode(app);
 
@@ -335,28 +336,24 @@ describe("nodes API", () => {
 			});
 
 			// Bounty should now be in_review
-			const bounty = db
-				.select()
-				.from(schema.bounties)
-				.where(eq(schema.bounties.id, bountyId))
-				.get();
+			const bounty = (
+				await db.select().from(schema.bounties).where(eq(schema.bounties.id, bountyId))
+			)[0];
 			expect(bounty?.status).toBe("in_review");
 		});
 
 		it("returns pendingBounty when no reviews pending", async () => {
 			// Only a queued bounty, no submissions
-			db.insert(schema.bounties)
-				.values({
-					id: generateId("bty"),
-					owner: "org",
-					repo: "repo",
-					issueNumber: 1,
-					issueTitle: "Solo bug",
-					issueBody: "Just a bounty",
-					labels: [],
-					status: "queued",
-				})
-				.run();
+			await db.insert(schema.bounties).values({
+				id: generateId("bty"),
+				owner: "org",
+				repo: "repo",
+				issueNumber: 1,
+				issueTitle: "Solo bug",
+				issueBody: "Just a bounty",
+				labels: [],
+				status: "queued",
+			});
 
 			const { nodeId, apiKey } = await registerNode(app);
 
