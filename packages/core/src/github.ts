@@ -246,6 +246,19 @@ export class GitHubClient {
 		await this.octokit.rest.git.createRef({ owner, repo, ref, sha });
 	}
 
+	async deleteRef(owner: string, repo: string, ref: string): Promise<void> {
+		await this.octokit.rest.git.deleteRef({ owner, repo, ref });
+	}
+
+	async getPullRequestState(
+		owner: string,
+		repo: string,
+		pullNumber: number,
+	): Promise<{ state: "open" | "closed"; merged: boolean }> {
+		const { data } = await this.octokit.rest.pulls.get({ owner, repo, pull_number: pullNumber });
+		return { state: data.state as "open" | "closed", merged: data.merged };
+	}
+
 	async checkFairygitMotherConfig(owner: string, repo: string): Promise<RepoConfig | null> {
 		try {
 			const { data } = await this.octokit.rest.repos.getContent({

@@ -5,6 +5,7 @@ import { serve } from "@hono/node-server";
 import { setStatsBaseline } from "./api/stats.js";
 import { createApp } from "./app.js";
 import type { PrSubmitContext } from "./consensus/aggregator.js";
+import { cleanupMergedPrs } from "./consensus/cleanup.js";
 import { getDb } from "./db/client.js";
 import { runMigrations } from "./db/migrate.js";
 import { requeueStaleBounties, requeueStaleDiffs } from "./orchestrator/queue.js";
@@ -91,6 +92,21 @@ scheduleTask(
 	},
 	300_000,
 );
+
+// Clean up merged/closed PRs and delete fork branches every 10 minutes
+if (prContext) {
+	const { github: prGitHub, forkOwner } = prContext;
+	scheduleTask(
+		"cleanup-merged-prs",
+		async () => {
+			const { merged, closed } = await cleanupMergedPrs(db, prGitHub, forkOwner);
+			if (merged + closed > 0) {
+				console.log(`[scheduler] PR cleanup: ${merged} merged, ${closed} closed`);
+			}
+		},
+		600_000,
+	);
+}
 
 // Persist stats every 5 minutes (survives deploys)
 scheduleTask(
