@@ -1,4 +1,4 @@
-export { FairygitMotherClient } from "./client.js";
+export { FairygitMotherClient, type PushHandler } from "./client.js";
 export {
 	safeClone,
 	generateDiff,

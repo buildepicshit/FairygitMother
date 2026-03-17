@@ -2,7 +2,9 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGitHubAppClient, createGitHubClient, loadConfig } from "@fairygitmother/core";
 import { serve } from "@hono/node-server";
+import { attachNodeWebSocketHandler } from "./api/node-push.js";
 import { setStatsBaseline } from "./api/stats.js";
+import { attachWebSocketHandler } from "./api/websocket.js";
 import { createApp } from "./app.js";
 import type { PrSubmitContext } from "./consensus/aggregator.js";
 import { cleanupMergedPrs } from "./consensus/cleanup.js";
@@ -124,6 +126,10 @@ const _server = serve({
 	port: config.port,
 	hostname: config.host,
 });
+
+// Attach WebSocket handlers to the underlying HTTP server
+attachWebSocketHandler(_server);
+attachNodeWebSocketHandler(_server, db);
 
 console.log(`[fairygitmother] Server running on http://${config.host}:${config.port}`);
 

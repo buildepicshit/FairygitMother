@@ -11,6 +11,7 @@ import type { FairygitMotherDb } from "../db/client.js";
 import { bounties, submissions, votes } from "../db/schema.js";
 import { dequeueAndAssign } from "../orchestrator/queue.js";
 import { heartbeat, registerNode, removeNode } from "../orchestrator/registry.js";
+import { updateNodeStatus } from "./node-push.js";
 
 interface VersionCheckConfig {
 	latestVersion: string;
@@ -128,6 +129,7 @@ export function createNodeRoutes(db: FairygitMotherDb) {
 		}
 
 		await heartbeat(db, nodeId, parsed.data.status, parsed.data.tokensUsedSinceLastHeartbeat);
+		updateNodeStatus(nodeId, parsed.data.status as "idle" | "busy");
 
 		let pendingBounty = null;
 		let pendingReview = null;

@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { createBountyRoutes } from "./api/bounties.js";
+import { nodeWsRouteHandler } from "./api/node-push.js";
 import { createNodeRoutes } from "./api/nodes.js";
 import { createReviewRoutes } from "./api/reviews.js";
 import { createStatsRoutes } from "./api/stats.js";
@@ -28,6 +29,7 @@ export function createApp(db: FairygitMotherDb, prContext?: PrSubmitContext) {
 
 	// Real-time feed (WebSocket upgrade — plain HTTP gets 426)
 	app.get("/api/v1/feed", feedRouteHandler);
+	app.get("/api/v1/nodes/ws", nodeWsRouteHandler);
 
 	// API routes
 	app.route("/api/v1/nodes", createNodeRoutes(db));

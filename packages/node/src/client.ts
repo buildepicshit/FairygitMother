@@ -11,10 +11,15 @@ import type {
 	SubmitVoteResponse,
 } from "@fairygitmother/core";
 
+export type PushHandler = (message: Record<string, unknown>) => void;
+
 export class FairygitMotherClient {
 	private baseUrl: string;
 	private apiKey: string | null;
 	private nodeId: string | null;
+	private ws: WebSocket | null = null;
+	private wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+	private pushHandlers: Set<PushHandler> = new Set();
 
 	constructor(orchestratorUrl: string, apiKey?: string, nodeId?: string) {
 		this.baseUrl = orchestratorUrl.replace(/\/$/, "");
@@ -63,10 +68,97 @@ export class FairygitMotherClient {
 	}
 
 	async disconnect(): Promise<void> {
+		this.disconnectWebSocket();
 		if (!this.nodeId) return;
 		await this.fetch(`/api/v1/nodes/${this.nodeId}`, "DELETE");
 		this.nodeId = null;
 		this.apiKey = null;
+	}
+
+	/**
+	 * Register a handler for push notifications from the server.
+	 * Messages include: { type: "work_available", ... }, { type: "review_available", ... }
+	 */
+	onPush(handler: PushHandler): () => void {
+		this.pushHandlers.add(handler);
+		return () => this.pushHandlers.delete(handler);
+	}
+
+	/**
+	 * Connect to the server's WebSocket for real-time push notifications.
+	 * Auto-reconnects on disconnect with exponential backoff.
+	 */
+	connectWebSocket(): void {
+		if (!this.apiKey) return;
+
+		const wsUrl = `${this.baseUrl.replace(/^http/, "ws")}/api/v1/nodes/ws?apiKey=${this.apiKey}`;
+
+		try {
+			this.ws = new WebSocket(wsUrl);
+		} catch {
+			this.scheduleReconnect();
+			return;
+		}
+
+		this.ws.onopen = () => {
+			console.log("[fgm-client] WebSocket connected");
+		};
+
+		this.ws.onmessage = (event) => {
+			try {
+				const msg = JSON.parse(typeof event.data === "string" ? event.data : event.data.toString());
+				for (const handler of this.pushHandlers) {
+					try {
+						handler(msg);
+					} catch {
+						// Don't let one handler crash others
+					}
+				}
+			} catch {
+				// Ignore malformed messages
+			}
+		};
+
+		this.ws.onclose = () => {
+			this.ws = null;
+			this.scheduleReconnect();
+		};
+
+		this.ws.onerror = () => {
+			// onclose will fire after onerror
+		};
+	}
+
+	/**
+	 * Send a status update to the server over WebSocket.
+	 */
+	sendStatus(status: "idle" | "busy"): void {
+		if (this.ws?.readyState === WebSocket.OPEN) {
+			this.ws.send(JSON.stringify({ type: "status", status }));
+		}
+	}
+
+	private disconnectWebSocket(): void {
+		if (this.wsReconnectTimer) {
+			clearTimeout(this.wsReconnectTimer);
+			this.wsReconnectTimer = null;
+		}
+		if (this.ws) {
+			try {
+				this.ws.close();
+			} catch {
+				// Ignore
+			}
+			this.ws = null;
+		}
+	}
+
+	private scheduleReconnect(): void {
+		if (this.wsReconnectTimer) return;
+		this.wsReconnectTimer = setTimeout(() => {
+			this.wsReconnectTimer = null;
+			if (this.apiKey) this.connectWebSocket();
+		}, 5000);
 	}
 
 	private async fetch(path: string, method: string, body?: unknown): Promise<any> {

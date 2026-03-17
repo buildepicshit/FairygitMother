@@ -9,6 +9,7 @@ import { bounties, repos, submissions } from "../db/schema.js";
 import { dequeueAndAssign } from "../orchestrator/queue.js";
 import { findNodeByApiKey } from "../orchestrator/registry.js";
 import { emitEvent } from "./feed.js";
+import { pushToIdleNodes } from "./node-push.js";
 
 // ── Submission-first: repos/maintainers submit issues to us ────
 
@@ -141,6 +142,17 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 		});
 		await logAudit(db, "bounty_created", bountyId, { owner, repo, issueNumber });
 
+		// Push-notify idle nodes that work is available
+		pushToIdleNodes({
+			type: "work_available",
+			bountyId,
+			owner,
+			repo,
+			issueTitle,
+			language,
+			complexityEstimate,
+		});
+
 		return c.json({ bountyId, status: "queued" }, 201);
 	});
 
@@ -238,6 +250,19 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 			bountyId,
 		});
 		await logAudit(db, "fix_submitted", submissionId, { bountyId, nodeId: bounty.assignedNodeId });
+
+		// Push-notify idle nodes that a review is available (exclude the solver)
+		pushToIdleNodes(
+			{
+				type: "review_available",
+				submissionId,
+				bountyId,
+				owner: bounty.owner,
+				repo: bounty.repo,
+				issueTitle: bounty.issueTitle,
+			},
+			bounty.assignedNodeId ?? undefined,
+		);
 
 		return c.json({ submissionId, status: "accepted" }, 201);
 	});
