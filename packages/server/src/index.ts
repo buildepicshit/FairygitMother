@@ -6,8 +6,8 @@ import { serve } from "@hono/node-server";
 import { setStatsBaseline } from "./api/stats.js";
 import { createApp } from "./app.js";
 import type { PrSubmitContext } from "./consensus/aggregator.js";
-import { getDb } from "./db/client.js";
-import { runMigrations } from "./db/migrate.js";
+import { getDb, getPgDb } from "./db/client.js";
+import { runMigrations, runPgMigrations } from "./db/migrate.js";
 import { requeueStaleBounties, requeueStaleDiffs } from "./orchestrator/queue.js";
 import { pruneStaleNodes } from "./orchestrator/registry.js";
 import { scheduleTask, stopAll } from "./orchestrator/scheduler.js";
@@ -17,22 +17,29 @@ const config = loadConfig();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = resolve(__dirname, "../../../migrations");
 
-// Clean up stale WAL/SHM files from previous container (Azure Files doesn't handle WAL well)
-for (const suffix of ["-wal", "-shm"]) {
-	const path = `${config.dbPath}${suffix}`;
-	if (existsSync(path)) {
-		try {
-			unlinkSync(path);
-			console.log(`[fairygitmother] Removed stale ${suffix} file`);
-		} catch {}
+const databaseUrl = process.env.DATABASE_URL;
+
+let db: ReturnType<typeof getDb>;
+if (databaseUrl) {
+	// PostgreSQL (production)
+	await runPgMigrations(databaseUrl, migrationsDir);
+	db = getPgDb(databaseUrl);
+	console.log("[fairygitmother] Using PostgreSQL");
+} else {
+	// SQLite (local dev)
+	for (const suffix of ["-wal", "-shm"]) {
+		const path = `${config.dbPath}${suffix}`;
+		if (existsSync(path)) {
+			try {
+				unlinkSync(path);
+				console.log(`[fairygitmother] Removed stale ${suffix} file`);
+			} catch {}
+		}
 	}
+	runMigrations(config.dbPath, migrationsDir);
+	db = getDb(config.dbPath);
+	console.log("[fairygitmother] Using SQLite");
 }
-
-// Run migrations
-runMigrations(config.dbPath, migrationsDir);
-
-// Initialize database and app
-const db = getDb(config.dbPath);
 
 // Load persisted stats from Azure Files mount (survives deploys)
 const statsPath = resolve(dirname(config.dbPath), "persisted-stats.json");
