@@ -59,72 +59,79 @@ export function checkDiffSafety(
 	return { safe: issues.length === 0, issues };
 }
 
-export function canSubmitPrForRepo(
+export async function canSubmitPrForRepo(
 	db: FairygitMotherDb,
 	owner: string,
 	repo: string,
 	maxPerDay: number,
-): boolean {
+): Promise<boolean> {
 	const todayStart = new Date();
 	todayStart.setHours(0, 0, 0, 0);
 
-	const result = db
-		.select({ count: sql<number>`count(*)` })
-		.from(consensusResults)
-		.innerJoin(
-			bounties,
-			eq(
-				consensusResults.submissionId,
-				sql`(SELECT id FROM submissions WHERE bounty_id = ${bounties.id} LIMIT 1)`,
-			),
-		)
-		.where(
-			and(
-				eq(bounties.owner, owner),
-				eq(bounties.repo, repo),
-				eq(consensusResults.outcome, "approved"),
-				gte(consensusResults.decidedAt, todayStart.toISOString()),
-			),
-		)
-		.get();
+	const result = (
+		await db
+			.select({ count: sql<number>`count(*)` })
+			.from(consensusResults)
+			.innerJoin(
+				bounties,
+				eq(
+					consensusResults.submissionId,
+					sql`(SELECT id FROM submissions WHERE bounty_id = ${bounties.id} LIMIT 1)`,
+				),
+			)
+			.where(
+				and(
+					eq(bounties.owner, owner),
+					eq(bounties.repo, repo),
+					eq(consensusResults.outcome, "approved"),
+					gte(consensusResults.decidedAt, todayStart.toISOString()),
+				),
+			)
+	)[0];
 
 	return (result?.count ?? 0) < maxPerDay;
 }
 
-export function isRepoBlacklisted(db: FairygitMotherDb, owner: string, repo: string): boolean {
-	const repoRow = db
-		.select()
-		.from(repos)
-		.where(and(eq(repos.owner, owner), eq(repos.name, repo)))
-		.get();
+export async function isRepoBlacklisted(
+	db: FairygitMotherDb,
+	owner: string,
+	repo: string,
+): Promise<boolean> {
+	const repoRow = (
+		await db
+			.select()
+			.from(repos)
+			.where(and(eq(repos.owner, owner), eq(repos.name, repo)))
+	)[0];
 
 	return repoRow?.blacklisted ?? false;
 }
 
-export function incrementRejects(db: FairygitMotherDb, owner: string, repo: string) {
-	const repoRow = db
-		.select()
-		.from(repos)
-		.where(and(eq(repos.owner, owner), eq(repos.name, repo)))
-		.get();
+export async function incrementRejects(db: FairygitMotherDb, owner: string, repo: string) {
+	const repoRow = (
+		await db
+			.select()
+			.from(repos)
+			.where(and(eq(repos.owner, owner), eq(repos.name, repo)))
+	)[0];
 
 	if (!repoRow) return;
 
 	const newCount = repoRow.consecutiveRejects + 1;
 	const blacklist = newCount >= 5;
 
-	db.update(repos)
+	await db
+		.update(repos)
 		.set({
 			consecutiveRejects: newCount,
 			blacklisted: blacklist,
 		})
-		.where(eq(repos.id, repoRow.id))
-		.run();
+		.where(eq(repos.id, repoRow.id));
 }
 
-export function resetRejects(db: FairygitMotherDb, owner: string, repo: string) {
-	db.update(repos)
+export async function resetRejects(db: FairygitMotherDb, owner: string, repo: string) {
+	await db
+		.update(repos)
 		.set({ consecutiveRejects: 0 })
-		.where(and(eq(repos.owner, owner), eq(repos.name, repo)))
-		.run();
+		.where(and(eq(repos.owner, owner), eq(repos.name, repo)));
 }

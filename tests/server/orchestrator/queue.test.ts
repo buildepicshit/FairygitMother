@@ -76,41 +76,41 @@ describe("queue", () => {
 	});
 
 	describe("getQueueDepth", () => {
-		it("returns 0 for empty queue", () => {
-			expect(getQueueDepth(db)).toBe(0);
+		it("returns 0 for empty queue", async () => {
+			expect(await getQueueDepth(db)).toBe(0);
 		});
 
-		it("counts queued bounties", () => {
+		it("counts queued bounties", async () => {
 			insertBounty(db);
 			insertBounty(db);
 			insertBounty(db, { status: "assigned" });
-			expect(getQueueDepth(db)).toBe(2);
+			expect(await getQueueDepth(db)).toBe(2);
 		});
 	});
 
 	describe("dequeueForNode", () => {
-		it("returns null when no bounties", () => {
+		it("returns null when no bounties", async () => {
 			const node = insertNode(db);
-			expect(dequeueForNode(db, node.id)).toBeNull();
+			expect(await dequeueForNode(db, node.id)).toBeNull();
 		});
 
-		it("returns highest priority bounty", () => {
+		it("returns highest priority bounty", async () => {
 			const node = insertNode(db);
 			insertBounty(db, { priority: 100, issueTitle: "Low priority" });
 			insertBounty(db, { priority: 10, issueTitle: "High priority" });
-			const result = dequeueForNode(db, node.id);
+			const result = await dequeueForNode(db, node.id);
 			expect(result?.issueTitle).toBe("High priority");
 		});
 
-		it("matches language capabilities", () => {
+		it("matches language capabilities", async () => {
 			const node = insertNode(db, { capabilities: { languages: ["Python"], tools: [] } });
 			insertBounty(db, { language: "TypeScript", issueTitle: "TS issue" });
 			insertBounty(db, { language: "Python", issueTitle: "Python issue" });
-			const result = dequeueForNode(db, node.id);
+			const result = await dequeueForNode(db, node.id);
 			expect(result?.issueTitle).toBe("Python issue");
 		});
 
-		it("skips blacklisted repos", () => {
+		it("skips blacklisted repos", async () => {
 			const node = insertNode(db);
 			db.insert(schema.repos)
 				.values({
@@ -120,15 +120,15 @@ describe("queue", () => {
 				})
 				.run();
 			insertBounty(db);
-			expect(dequeueForNode(db, node.id)).toBeNull();
+			expect(await dequeueForNode(db, node.id)).toBeNull();
 		});
 	});
 
 	describe("markAssigned", () => {
-		it("updates bounty status and node", () => {
+		it("updates bounty status and node", async () => {
 			const bounty = insertBounty(db);
 			const node = insertNode(db);
-			markAssigned(db, bounty.id, node.id);
+			await markAssigned(db, bounty.id, node.id);
 
 			const updated = db
 				.select()
@@ -141,9 +141,9 @@ describe("queue", () => {
 	});
 
 	describe("requeue", () => {
-		it("increments retry count and resets status", () => {
+		it("increments retry count and resets status", async () => {
 			const bounty = insertBounty(db, { status: "assigned", retryCount: 1 });
-			requeue(db, bounty.id);
+			await requeue(db, bounty.id);
 
 			const updated = db
 				.select()

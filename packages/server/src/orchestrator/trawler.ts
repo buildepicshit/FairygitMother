@@ -19,17 +19,18 @@ export async function scanRepo(opts: TrawlerOptions, owner: string, repo: string
 	for (const issue of issues) {
 		if (!isEligible(issue)) continue;
 
-		const existing = db
-			.select()
-			.from(bounties)
-			.where(
-				and(
-					eq(bounties.owner, owner),
-					eq(bounties.repo, repo),
-					eq(bounties.issueNumber, issue.number),
-				),
-			)
-			.get();
+		const existing = (
+			await db
+				.select()
+				.from(bounties)
+				.where(
+					and(
+						eq(bounties.owner, owner),
+						eq(bounties.repo, repo),
+						eq(bounties.issueNumber, issue.number),
+					),
+				)
+		)[0];
 
 		if (existing) continue;
 
@@ -54,7 +55,7 @@ export async function scanRepo(opts: TrawlerOptions, owner: string, repo: string
 			retryCount: 0,
 		};
 
-		db.insert(bounties).values(bounty).run();
+		await db.insert(bounties).values(bounty);
 		created++;
 
 		emitEvent({
@@ -68,10 +69,10 @@ export async function scanRepo(opts: TrawlerOptions, owner: string, repo: string
 	}
 
 	// Update last trawled time for repo
-	db.update(repos)
+	await db
+		.update(repos)
 		.set({ lastTrawledAt: new Date().toISOString() })
-		.where(and(eq(repos.owner, owner), eq(repos.name, repo)))
-		.run();
+		.where(and(eq(repos.owner, owner), eq(repos.name, repo)));
 
 	return created;
 }

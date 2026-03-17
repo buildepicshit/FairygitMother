@@ -9,13 +9,18 @@ import { submitPr } from "./submitter.js";
 
 export type ConsensusDecision = "approved" | "rejected" | "pending" | "timeout";
 
-export function evaluateConsensus(db: FairygitMotherDb, submissionId: string): ConsensusDecision {
-	const submission = db.select().from(submissions).where(eq(submissions.id, submissionId)).get();
+export async function evaluateConsensus(
+	db: FairygitMotherDb,
+	submissionId: string,
+): Promise<ConsensusDecision> {
+	const submission = (
+		await db.select().from(submissions).where(eq(submissions.id, submissionId))
+	)[0];
 	if (!submission) return "pending";
 
-	const allVotes = db.select().from(votes).where(eq(votes.submissionId, submissionId)).all();
+	const allVotes = await db.select().from(votes).where(eq(votes.submissionId, submissionId));
 
-	const required = getConsensusRequirement(db, submission.nodeId);
+	const required = await getConsensusRequirement(db, submission.nodeId);
 	const approvals = allVotes.filter((v) => v.decision === "approve").length;
 	const rejections = allVotes.filter((v) => v.decision === "reject").length;
 
@@ -40,50 +45,50 @@ export interface PrSubmitContext {
 	forkOwner: string;
 }
 
-export function recordConsensus(
+export async function recordConsensus(
 	db: FairygitMotherDb,
 	submissionId: string,
 	outcome: "approved" | "rejected" | "timeout",
 	prContext?: PrSubmitContext,
 ) {
-	const allVotes = db.select().from(votes).where(eq(votes.submissionId, submissionId)).all();
+	const allVotes = await db.select().from(votes).where(eq(votes.submissionId, submissionId));
 
 	const approvals = allVotes.filter((v) => v.decision === "approve").length;
 	const rejections = allVotes.filter((v) => v.decision === "reject").length;
 
 	const resultId = generateId("cons");
-	db.insert(consensusResults)
-		.values({
-			id: resultId,
-			submissionId,
-			outcome,
-			approveCount: approvals,
-			rejectCount: rejections,
-			totalVotes: allVotes.length,
-		})
-		.run();
+	await db.insert(consensusResults).values({
+		id: resultId,
+		submissionId,
+		outcome,
+		approveCount: approvals,
+		rejectCount: rejections,
+		totalVotes: allVotes.length,
+	});
 
 	// Update bounty status
-	const submission = db.select().from(submissions).where(eq(submissions.id, submissionId)).get();
+	const submission = (
+		await db.select().from(submissions).where(eq(submissions.id, submissionId))
+	)[0];
 
 	if (submission) {
 		const newStatus = outcome === "approved" ? "approved" : "rejected";
-		db.update(bounties)
+		await db
+			.update(bounties)
 			.set({ status: newStatus, updatedAt: new Date().toISOString() })
-			.where(eq(bounties.id, submission.bountyId))
-			.run();
+			.where(eq(bounties.id, submission.bountyId));
 
 		// Apply reputation events
 		if (outcome === "approved") {
-			applyReputationEvent(db, submission.nodeId, "fix_merged");
-			db.update(nodes)
+			await applyReputationEvent(db, submission.nodeId, "fix_merged");
+			await db
+				.update(nodes)
 				.set({
 					totalBountiesSolved: sql`${nodes.totalBountiesSolved} + 1`,
 				})
-				.where(eq(nodes.id, submission.nodeId))
-				.run();
+				.where(eq(nodes.id, submission.nodeId));
 		} else if (outcome === "rejected") {
-			applyReputationEvent(db, submission.nodeId, "fix_closed");
+			await applyReputationEvent(db, submission.nodeId, "fix_closed");
 		}
 
 		// Reward accurate reviewers
@@ -91,7 +96,7 @@ export function recordConsensus(
 			const accurate =
 				(outcome === "approved" && vote.decision === "approve") ||
 				(outcome === "rejected" && vote.decision === "reject");
-			applyReputationEvent(
+			await applyReputationEvent(
 				db,
 				vote.reviewerNodeId,
 				accurate ? "review_accurate" : "review_inaccurate",
@@ -99,7 +104,7 @@ export function recordConsensus(
 		}
 
 		emitEvent({ type: "consensus_reached", submissionId, outcome });
-		logAudit(db, "consensus_reached", submissionId, {
+		await logAudit(db, "consensus_reached", submissionId, {
 			outcome,
 			approveCount: approvals,
 			rejectCount: rejections,
@@ -108,9 +113,9 @@ export function recordConsensus(
 
 		// Auto-submit PR on approval (fire-and-forget, errors logged not thrown)
 		if (outcome === "approved" && prContext) {
-			submitPr(db, prContext.github, submissionId, prContext.forkOwner).catch((err) => {
+			submitPr(db, prContext.github, submissionId, prContext.forkOwner).catch(async (err) => {
 				console.error(`[consensus] Failed to auto-submit PR for ${submissionId}:`, err);
-				logAudit(db, "pr_submitted", submissionId, {
+				await logAudit(db, "pr_submitted", submissionId, {
 					error: String(err),
 					bountyId: submission.bountyId,
 				});

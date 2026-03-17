@@ -20,44 +20,51 @@ const PROBATION_THRESHOLD = 5; // First N merges need 3-of-3
 
 export type ReputationEvent = keyof typeof SCORE_DELTAS;
 
-export function applyReputationEvent(db: FairygitMotherDb, nodeId: string, event: ReputationEvent) {
-	const node = db.select().from(nodes).where(eq(nodes.id, nodeId)).get();
+export async function applyReputationEvent(
+	db: FairygitMotherDb,
+	nodeId: string,
+	event: ReputationEvent,
+) {
+	const node = (await db.select().from(nodes).where(eq(nodes.id, nodeId)))[0];
 	if (!node) return;
 
 	const delta = SCORE_DELTAS[event];
 	const newScore = Math.min(MAX_SCORE, Math.max(MIN_SCORE, node.reputationScore + delta));
 
-	db.update(nodes).set({ reputationScore: newScore }).where(eq(nodes.id, nodeId)).run();
+	await db.update(nodes).set({ reputationScore: newScore }).where(eq(nodes.id, nodeId));
 }
 
-export function applyDailyDecay(db: FairygitMotherDb) {
-	const allNodes = db.select().from(nodes).all();
+export async function applyDailyDecay(db: FairygitMotherDb) {
+	const allNodes = await db.select().from(nodes);
 
 	for (const node of allNodes) {
 		const diff = node.reputationScore - DAILY_DECAY_TARGET;
 		const decayed = node.reputationScore - diff * DAILY_DECAY_RATE;
 		const clamped = Math.min(MAX_SCORE, Math.max(MIN_SCORE, decayed));
 
-		db.update(nodes).set({ reputationScore: clamped }).where(eq(nodes.id, node.id)).run();
+		await db.update(nodes).set({ reputationScore: clamped }).where(eq(nodes.id, node.id));
 	}
 }
 
-export function isSuspended(db: FairygitMotherDb, nodeId: string): boolean {
-	const node = db.select().from(nodes).where(eq(nodes.id, nodeId)).get();
+export async function isSuspended(db: FairygitMotherDb, nodeId: string): Promise<boolean> {
+	const node = (await db.select().from(nodes).where(eq(nodes.id, nodeId)))[0];
 	return node ? node.reputationScore < SUSPENSION_THRESHOLD : true;
 }
 
-export function isOnProbation(db: FairygitMotherDb, nodeId: string): boolean {
-	const node = db.select().from(nodes).where(eq(nodes.id, nodeId)).get();
+export async function isOnProbation(db: FairygitMotherDb, nodeId: string): Promise<boolean> {
+	const node = (await db.select().from(nodes).where(eq(nodes.id, nodeId)))[0];
 	if (!node) return true;
 	return node.totalBountiesSolved < PROBATION_THRESHOLD;
 }
 
-export function getConsensusRequirement(db: FairygitMotherDb, nodeId: string): number {
-	return isOnProbation(db, nodeId) ? 3 : 2;
+export async function getConsensusRequirement(
+	db: FairygitMotherDb,
+	nodeId: string,
+): Promise<number> {
+	return (await isOnProbation(db, nodeId)) ? 3 : 2;
 }
 
-export function getReputation(db: FairygitMotherDb, nodeId: string): number {
-	const node = db.select().from(nodes).where(eq(nodes.id, nodeId)).get();
+export async function getReputation(db: FairygitMotherDb, nodeId: string): Promise<number> {
+	const node = (await db.select().from(nodes).where(eq(nodes.id, nodeId)))[0];
 	return node?.reputationScore ?? 0;
 }

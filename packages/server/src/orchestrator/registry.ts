@@ -10,69 +10,70 @@ export interface RegisteredNode {
 	apiKey: string;
 }
 
-export function registerNode(
+export async function registerNode(
 	db: FairygitMotherDb,
 	displayName: string | null,
 	capabilities: NodeCapabilities,
 	solverBackend: string,
-): RegisteredNode {
+): Promise<RegisteredNode> {
 	const id = generateId("node");
 	const apiKey = generateApiKey();
 
-	db.insert(nodes)
-		.values({
-			id,
-			displayName,
-			apiKey,
-			capabilities,
-			solverBackend,
-			status: "idle",
-			reputationScore: 50,
-			totalTokensDonated: 0,
-			totalBountiesSolved: 0,
-			totalReviewsDone: 0,
-		})
-		.run();
+	await db.insert(nodes).values({
+		id,
+		displayName,
+		apiKey,
+		capabilities,
+		solverBackend,
+		status: "idle",
+		reputationScore: 50,
+		totalTokensDonated: 0,
+		totalBountiesSolved: 0,
+		totalReviewsDone: 0,
+	});
 
 	emitEvent({ type: "node_joined", nodeId: id, displayName });
-	logAudit(db, "node_registered", id, { displayName, solverBackend });
+	await logAudit(db, "node_registered", id, { displayName, solverBackend });
 
 	return { id, apiKey };
 }
 
-export function heartbeat(
+export async function heartbeat(
 	db: FairygitMotherDb,
 	nodeId: string,
 	status: "idle" | "busy" | "reviewing",
 	tokensSinceLastHeartbeat: number,
 ) {
 	const now = new Date().toISOString();
-	db.update(nodes)
+	await db
+		.update(nodes)
 		.set({
 			status,
 			lastHeartbeat: now,
 			totalTokensDonated: sql`${nodes.totalTokensDonated} + ${tokensSinceLastHeartbeat}`,
 		})
-		.where(eq(nodes.id, nodeId))
-		.run();
+		.where(eq(nodes.id, nodeId));
 }
 
-export function findNodeByApiKey(db: FairygitMotherDb, apiKey: string) {
-	return db.select().from(nodes).where(eq(nodes.apiKey, apiKey)).get();
+export async function findNodeByApiKey(db: FairygitMotherDb, apiKey: string) {
+	return (await db.select().from(nodes).where(eq(nodes.apiKey, apiKey)))[0];
 }
 
-export function getNode(db: FairygitMotherDb, nodeId: string) {
-	return db.select().from(nodes).where(eq(nodes.id, nodeId)).get();
+export async function getNode(db: FairygitMotherDb, nodeId: string) {
+	return (await db.select().from(nodes).where(eq(nodes.id, nodeId)))[0];
 }
 
-export function removeNode(db: FairygitMotherDb, nodeId: string) {
-	db.update(nodes).set({ status: "offline" }).where(eq(nodes.id, nodeId)).run();
+export async function removeNode(db: FairygitMotherDb, nodeId: string) {
+	await db.update(nodes).set({ status: "offline" }).where(eq(nodes.id, nodeId));
 	emitEvent({ type: "node_left", nodeId });
-	logAudit(db, "node_pruned", nodeId, { reason: "removed" });
+	await logAudit(db, "node_pruned", nodeId, { reason: "removed" });
 }
 
-export function matchBountyToNode(db: FairygitMotherDb, language: string | null): string | null {
-	const idleNodes = db.select().from(nodes).where(eq(nodes.status, "idle")).all();
+export async function matchBountyToNode(
+	db: FairygitMotherDb,
+	language: string | null,
+): Promise<string | null> {
+	const idleNodes = await db.select().from(nodes).where(eq(nodes.status, "idle"));
 
 	if (idleNodes.length === 0) return null;
 
@@ -88,33 +89,33 @@ export function matchBountyToNode(db: FairygitMotherDb, language: string | null)
 	return candidates.length > 0 ? candidates[0].id : null;
 }
 
-export function pruneStaleNodes(db: FairygitMotherDb, timeoutMs: number) {
+export async function pruneStaleNodes(db: FairygitMotherDb, timeoutMs: number): Promise<number> {
 	const cutoff = new Date(Date.now() - timeoutMs).toISOString();
-	const stale = db
+	const stale = await db
 		.select()
 		.from(nodes)
-		.where(and(lt(nodes.lastHeartbeat, cutoff), ne(nodes.status, "offline")))
-		.all();
+		.where(and(lt(nodes.lastHeartbeat, cutoff), ne(nodes.status, "offline")));
 
 	for (const node of stale) {
-		db.update(nodes).set({ status: "offline" }).where(eq(nodes.id, node.id)).run();
+		await db.update(nodes).set({ status: "offline" }).where(eq(nodes.id, node.id));
 		emitEvent({ type: "node_left", nodeId: node.id });
-		logAudit(db, "node_pruned", node.id, { reason: "stale", lastHeartbeat: node.lastHeartbeat });
+		await logAudit(db, "node_pruned", node.id, {
+			reason: "stale",
+			lastHeartbeat: node.lastHeartbeat,
+		});
 	}
 
 	return stale.length;
 }
 
-export function getActiveNodeCount(db: FairygitMotherDb): number {
-	const result = db
-		.select({ count: sql<number>`count(*)` })
-		.from(nodes)
-		.where(ne(nodes.status, "offline"))
-		.get();
+export async function getActiveNodeCount(db: FairygitMotherDb): Promise<number> {
+	const result = (
+		await db.select({ count: sql<number>`count(*)` }).from(nodes).where(ne(nodes.status, "offline"))
+	)[0];
 	return result?.count ?? 0;
 }
 
-export function getTotalNodeCount(db: FairygitMotherDb): number {
-	const result = db.select({ count: sql<number>`count(*)` }).from(nodes).get();
+export async function getTotalNodeCount(db: FairygitMotherDb): Promise<number> {
+	const result = (await db.select({ count: sql<number>`count(*)` }).from(nodes))[0];
 	return result?.count ?? 0;
 }

@@ -54,17 +54,17 @@ export async function submitPr(
 	submissionId: string,
 	forkOwner: string,
 ): Promise<PrSubmission | null> {
-	const consensus = db
-		.select()
-		.from(consensusResults)
-		.where(eq(consensusResults.submissionId, submissionId))
-		.get();
+	const consensus = (
+		await db.select().from(consensusResults).where(eq(consensusResults.submissionId, submissionId))
+	)[0];
 	if (!consensus || consensus.outcome !== "approved") return null;
 
-	const submission = db.select().from(submissions).where(eq(submissions.id, submissionId)).get();
+	const submission = (
+		await db.select().from(submissions).where(eq(submissions.id, submissionId))
+	)[0];
 	if (!submission) return null;
 
-	const bounty = db.select().from(bounties).where(eq(bounties.id, submission.bountyId)).get();
+	const bounty = (await db.select().from(bounties).where(eq(bounties.id, submission.bountyId)))[0];
 	if (!bounty) return null;
 
 	const branchName = `fairygitmother/fix-${bounty.issueNumber}-${submission.id.slice(0, 8)}`;
@@ -128,22 +128,22 @@ export async function submitPr(
 	);
 
 	// 7. Update DB
-	db.update(consensusResults)
+	await db
+		.update(consensusResults)
 		.set({ prUrl: pr.html_url })
-		.where(eq(consensusResults.id, consensus.id))
-		.run();
+		.where(eq(consensusResults.id, consensus.id));
 
-	db.update(bounties)
+	await db
+		.update(bounties)
 		.set({ status: "pr_submitted", updatedAt: new Date().toISOString() })
-		.where(eq(bounties.id, bounty.id))
-		.run();
+		.where(eq(bounties.id, bounty.id));
 
 	emitEvent({
 		type: "pr_submitted",
 		bountyId: bounty.id,
 		prUrl: pr.html_url,
 	});
-	logAudit(db, "pr_submitted", submissionId, {
+	await logAudit(db, "pr_submitted", submissionId, {
 		bountyId: bounty.id,
 		prUrl: pr.html_url,
 		prNumber: pr.number,

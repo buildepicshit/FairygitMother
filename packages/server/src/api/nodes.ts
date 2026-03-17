@@ -46,33 +46,33 @@ function buildApiUpdate(clientVersion: string | undefined): VersionUpdateInfo | 
 	};
 }
 
-function findPendingReview(db: FairygitMotherDb, nodeId: string) {
+async function findPendingReview(db: FairygitMotherDb, nodeId: string) {
 	// Find submissions awaiting review where this node hasn't voted and isn't the solver
-	const pendingSubmissions = db
+	const pendingSubmissions = await db
 		.select()
 		.from(submissions)
 		.innerJoin(bounties, eq(submissions.bountyId, bounties.id))
-		.where(inArray(bounties.status, ["diff_submitted", "in_review"]))
-		.all();
+		.where(inArray(bounties.status, ["diff_submitted", "in_review"]));
 
 	for (const row of pendingSubmissions) {
 		// Skip if this node is the solver
 		if (row.submissions.nodeId === nodeId) continue;
 
 		// Skip if this node already voted
-		const existingVote = db
-			.select()
-			.from(votes)
-			.where(and(eq(votes.submissionId, row.submissions.id), eq(votes.reviewerNodeId, nodeId)))
-			.get();
+		const existingVote = (
+			await db
+				.select()
+				.from(votes)
+				.where(and(eq(votes.submissionId, row.submissions.id), eq(votes.reviewerNodeId, nodeId)))
+		)[0];
 		if (existingVote) continue;
 
 		// Transition to in_review if still diff_submitted
 		if (row.bounties.status === "diff_submitted") {
-			db.update(bounties)
+			await db
+				.update(bounties)
 				.set({ status: "in_review", updatedAt: new Date().toISOString() })
-				.where(eq(bounties.id, row.bounties.id))
-				.run();
+				.where(eq(bounties.id, row.bounties.id));
 		}
 
 		return {
@@ -103,7 +103,7 @@ export function createNodeRoutes(db: FairygitMotherDb) {
 		}
 
 		const { displayName, capabilities, solverBackend } = parsed.data;
-		const result = registerNode(db, displayName, capabilities, solverBackend);
+		const result = await registerNode(db, displayName, capabilities, solverBackend);
 
 		return c.json({ nodeId: result.id, apiKey: result.apiKey }, 201);
 	});
@@ -122,19 +122,19 @@ export function createNodeRoutes(db: FairygitMotherDb) {
 			return c.json({ error: "Invalid request" }, 400);
 		}
 
-		heartbeat(db, nodeId, parsed.data.status, parsed.data.tokensUsedSinceLastHeartbeat);
+		await heartbeat(db, nodeId, parsed.data.status, parsed.data.tokensUsedSinceLastHeartbeat);
 
 		let pendingBounty = null;
 		let pendingReview = null;
 
 		if (parsed.data.status === "idle") {
 			// Reviews take priority over new bounties
-			pendingReview = findPendingReview(db, nodeId);
+			pendingReview = await findPendingReview(db, nodeId);
 
 			if (!pendingReview) {
-				const bounty = dequeueForNode(db, nodeId);
+				const bounty = await dequeueForNode(db, nodeId);
 				if (bounty) {
-					markAssigned(db, bounty.id, nodeId);
+					await markAssigned(db, bounty.id, nodeId);
 					pendingBounty = {
 						...bounty,
 						repoUrl: `https://github.com/${bounty.owner}/${bounty.repo}`,
@@ -167,7 +167,7 @@ export function createNodeRoutes(db: FairygitMotherDb) {
 			return c.json({ error: "Forbidden: node ID mismatch" }, 403);
 		}
 
-		removeNode(db, nodeId);
+		await removeNode(db, nodeId);
 		return c.json({ removed: true });
 	});
 

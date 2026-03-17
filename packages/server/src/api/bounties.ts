@@ -27,14 +27,14 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 	const app = new Hono();
 
 	// GET /api/v1/bounties/:id/submissions — view submissions for a bounty
-	app.get("/:id/submissions", (c) => {
+	app.get("/:id/submissions", async (c) => {
 		const bountyId = c.req.param("id");
-		const subs = db.select().from(submissions).where(eq(submissions.bountyId, bountyId)).all();
+		const subs = await db.select().from(submissions).where(eq(submissions.bountyId, bountyId));
 		return c.json({ submissions: subs });
 	});
 
 	// GET /api/v1/bounties — list bounties with optional filters
-	app.get("/", (c) => {
+	app.get("/", async (c) => {
 		const status = c.req.query("status");
 		const owner = c.req.query("owner");
 		const repo = c.req.query("repo");
@@ -49,7 +49,7 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 			query = query.where(and(eq(bounties.owner, owner), eq(bounties.repo, repo)));
 		}
 
-		const results = query.limit(limit).all();
+		const results = await query.limit(limit);
 		return c.json({ bounties: results });
 	});
 
@@ -73,51 +73,51 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 		} = parsed.data;
 
 		// Check for duplicate
-		const existing = db
-			.select()
-			.from(bounties)
-			.where(
-				and(
-					eq(bounties.owner, owner),
-					eq(bounties.repo, repo),
-					eq(bounties.issueNumber, issueNumber),
-				),
-			)
-			.get();
+		const existing = (
+			await db
+				.select()
+				.from(bounties)
+				.where(
+					and(
+						eq(bounties.owner, owner),
+						eq(bounties.repo, repo),
+						eq(bounties.issueNumber, issueNumber),
+					),
+				)
+		)[0];
 
 		if (existing) {
 			return c.json({ error: "Bounty already exists", bountyId: existing.id }, 409);
 		}
 
 		// Ensure repo exists in our registry
-		const repoRow = db
-			.select()
-			.from(repos)
-			.where(and(eq(repos.owner, owner), eq(repos.name, repo)))
-			.get();
+		const repoRow = (
+			await db
+				.select()
+				.from(repos)
+				.where(and(eq(repos.owner, owner), eq(repos.name, repo)))
+		)[0];
 
 		if (!repoRow) {
-			db.insert(repos).values({ owner, name: repo, language, optInTier: "explicit" }).run();
+			await db.insert(repos).values({ owner, name: repo, language, optInTier: "explicit" });
 		}
 
 		const bountyId = generateId("bty");
-		db.insert(bounties)
-			.values({
-				id: bountyId,
-				owner,
-				repo,
-				issueNumber,
-				issueTitle,
-				issueBody,
-				labels,
-				language,
-				complexityEstimate,
-				status: "queued",
-				assignedNodeId: null,
-				priority: 50,
-				retryCount: 0,
-			})
-			.run();
+		await db.insert(bounties).values({
+			id: bountyId,
+			owner,
+			repo,
+			issueNumber,
+			issueTitle,
+			issueBody,
+			labels,
+			language,
+			complexityEstimate,
+			status: "queued",
+			assignedNodeId: null,
+			priority: 50,
+			retryCount: 0,
+		});
 
 		emitEvent({
 			type: "bounty_created",
@@ -139,7 +139,7 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 				createdAt: new Date().toISOString(),
 			},
 		});
-		logAudit(db, "bounty_created", bountyId, { owner, repo, issueNumber });
+		await logAudit(db, "bounty_created", bountyId, { owner, repo, issueNumber });
 
 		return c.json({ bountyId, status: "queued" }, 201);
 	});
@@ -151,7 +151,7 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 		if (!nodeId) {
 			const body = await c.req.json().catch(() => ({}));
 			if (body.apiKey) {
-				const node = findNodeByApiKey(db, body.apiKey);
+				const node = await findNodeByApiKey(db, body.apiKey);
 				if (node) nodeId = node.id;
 			} else if (body.nodeId) {
 				nodeId = body.nodeId;
@@ -161,13 +161,13 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 			}
 		}
 
-		const bounty = dequeueForNode(db, nodeId);
+		const bounty = await dequeueForNode(db, nodeId);
 		if (!bounty) {
 			return c.json({ bounty: null });
 		}
 
-		markAssigned(db, bounty.id, nodeId);
-		logAudit(db, "bounty_assigned", bounty.id, { nodeId });
+		await markAssigned(db, bounty.id, nodeId);
+		await logAudit(db, "bounty_assigned", bounty.id, { nodeId });
 
 		emitEvent({
 			type: "bounty_assigned",
@@ -196,7 +196,7 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 			return c.json({ error: "Invalid request", details: parsed.error.issues }, 400);
 		}
 
-		const bounty = db.select().from(bounties).where(eq(bounties.id, bountyId)).get();
+		const bounty = (await db.select().from(bounties).where(eq(bounties.id, bountyId)))[0];
 		if (!bounty) {
 			return c.json({ error: "Bounty not found" }, 404);
 		}
@@ -211,32 +211,30 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 		}
 
 		const submissionId = generateId("sub");
-		db.insert(submissions)
-			.values({
-				id: submissionId,
-				bountyId,
-				nodeId: bounty.assignedNodeId ?? "unknown",
-				diff: parsed.data.diff,
-				explanation: parsed.data.explanation,
-				filesChanged: parsed.data.filesChanged,
-				testsPassed: parsed.data.testsPassed,
-				tokensUsed: parsed.data.tokensUsed,
-				solverBackend: parsed.data.solverBackend,
-				solveDurationMs: parsed.data.solveDurationMs,
-			})
-			.run();
+		await db.insert(submissions).values({
+			id: submissionId,
+			bountyId,
+			nodeId: bounty.assignedNodeId ?? "unknown",
+			diff: parsed.data.diff,
+			explanation: parsed.data.explanation,
+			filesChanged: parsed.data.filesChanged,
+			testsPassed: parsed.data.testsPassed,
+			tokensUsed: parsed.data.tokensUsed,
+			solverBackend: parsed.data.solverBackend,
+			solveDurationMs: parsed.data.solveDurationMs,
+		});
 
-		db.update(bounties)
+		await db
+			.update(bounties)
 			.set({ status: "diff_submitted", updatedAt: new Date().toISOString() })
-			.where(eq(bounties.id, bountyId))
-			.run();
+			.where(eq(bounties.id, bountyId));
 
 		emitEvent({
 			type: "fix_submitted",
 			submissionId,
 			bountyId,
 		});
-		logAudit(db, "fix_submitted", submissionId, { bountyId, nodeId: bounty.assignedNodeId });
+		await logAudit(db, "fix_submitted", submissionId, { bountyId, nodeId: bounty.assignedNodeId });
 
 		return c.json({ submissionId, status: "accepted" }, 201);
 	});

@@ -45,7 +45,7 @@ export function authMiddleware(db: FairygitMotherDb) {
 		}
 
 		const apiKey = match[1];
-		const node = findNodeByApiKey(db, apiKey);
+		const node = await findNodeByApiKey(db, apiKey);
 		if (!node) {
 			return c.json({ error: "Invalid API key" }, 401);
 		}

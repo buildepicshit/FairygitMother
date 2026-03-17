@@ -26,7 +26,9 @@ export function createReviewRoutes(db: FairygitMotherDb, prContext?: PrSubmitCon
 		const reviewerNodeId = c.get("nodeId") as string;
 
 		// Verify submission exists
-		const submission = db.select().from(submissions).where(eq(submissions.id, submissionId)).get();
+		const submission = (
+			await db.select().from(submissions).where(eq(submissions.id, submissionId))
+		)[0];
 		if (!submission) {
 			return c.json({ error: "Submission not found" }, 404);
 		}
@@ -37,46 +39,46 @@ export function createReviewRoutes(db: FairygitMotherDb, prContext?: PrSubmitCon
 		}
 
 		// Transition bounty to in_review on first vote
-		const bounty = db.select().from(bounties).where(eq(bounties.id, submission.bountyId)).get();
+		const bounty = (
+			await db.select().from(bounties).where(eq(bounties.id, submission.bountyId))
+		)[0];
 		if (bounty?.status === "diff_submitted") {
-			db.update(bounties)
+			await db
+				.update(bounties)
 				.set({ status: "in_review", updatedAt: new Date().toISOString() })
-				.where(eq(bounties.id, submission.bountyId))
-				.run();
+				.where(eq(bounties.id, submission.bountyId));
 		}
 
 		const voteId = generateId("vote");
-		db.insert(votes)
-			.values({
-				id: voteId,
-				submissionId,
-				reviewerNodeId,
-				decision: parsed.data.decision,
-				reasoning: parsed.data.reasoning,
-				issuesFound: parsed.data.issuesFound,
-				confidence: parsed.data.confidence,
-				testsRun: parsed.data.testsRun,
-			})
-			.run();
+		await db.insert(votes).values({
+			id: voteId,
+			submissionId,
+			reviewerNodeId,
+			decision: parsed.data.decision,
+			reasoning: parsed.data.reasoning,
+			issuesFound: parsed.data.issuesFound,
+			confidence: parsed.data.confidence,
+			testsRun: parsed.data.testsRun,
+		});
 
-		logAudit(db, "review_voted", voteId, {
+		await logAudit(db, "review_voted", voteId, {
 			submissionId,
 			reviewerNodeId,
 			decision: parsed.data.decision,
 		});
 
 		// Update reviewer stats
-		db.update(nodes)
+		await db
+			.update(nodes)
 			.set({
 				totalReviewsDone: sql`${nodes.totalReviewsDone} + 1`,
 			})
-			.where(eq(nodes.id, reviewerNodeId))
-			.run();
+			.where(eq(nodes.id, reviewerNodeId));
 
 		// Check if consensus is reached
-		const decision = evaluateConsensus(db, submissionId);
+		const decision = await evaluateConsensus(db, submissionId);
 		if (decision !== "pending") {
-			recordConsensus(db, submissionId, decision, prContext);
+			await recordConsensus(db, submissionId, decision, prContext);
 		}
 
 		return c.json({ accepted: true, consensusStatus: decision });

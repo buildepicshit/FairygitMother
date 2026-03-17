@@ -64,3 +64,4 @@ deploy.zip
 .claude/
 .agent/
 CLAUDE.md
+packages/server/persisted-stats.json

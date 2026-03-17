@@ -41,12 +41,12 @@ export function loadPersistedStats(filePath: string): PersistedStats {
  * Save current stats to a JSON file.
  * Merges live DB stats with the persisted baseline (takes the max of each counter).
  */
-export function savePersistedStats(
+export async function savePersistedStats(
 	filePath: string,
 	db: FairygitMotherDb,
 	baseline: PersistedStats,
-): PersistedStats {
-	const live = getGridStats(db);
+): Promise<PersistedStats> {
+	const live = await getGridStats(db);
 
 	const updated: PersistedStats = {
 		totalTokensDonated: Math.max(baseline.totalTokensDonated, live.totalTokensDonated),

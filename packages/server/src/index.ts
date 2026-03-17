@@ -81,7 +81,7 @@ const app = createApp(db, prContext);
 scheduleTask(
 	"prune-stale-nodes",
 	async () => {
-		const pruned = pruneStaleNodes(db, config.nodeTimeoutMs);
+		const pruned = await pruneStaleNodes(db, config.nodeTimeoutMs);
 		if (pruned > 0) console.log(`[scheduler] Pruned ${pruned} stale nodes`);
 	},
 	60_000,
@@ -91,7 +91,7 @@ scheduleTask(
 scheduleTask(
 	"requeue-stale-bounties",
 	async () => {
-		const requeued = requeueStaleBounties(db, 10 * 60_000);
+		const requeued = await requeueStaleBounties(db, 10 * 60_000);
 		if (requeued > 0) console.log(`[scheduler] Requeued ${requeued} stale assigned bounties`);
 	},
 	120_000,
@@ -101,7 +101,7 @@ scheduleTask(
 scheduleTask(
 	"requeue-stale-diffs",
 	async () => {
-		const requeued = requeueStaleDiffs(db, 30 * 60_000);
+		const requeued = await requeueStaleDiffs(db, 30 * 60_000);
 		if (requeued > 0) console.log(`[scheduler] Requeued ${requeued} stale diff_submitted bounties`);
 	},
 	300_000,
@@ -111,7 +111,7 @@ scheduleTask(
 scheduleTask(
 	"persist-stats",
 	async () => {
-		persistedStats = savePersistedStats(statsPath, db, persistedStats);
+		persistedStats = await savePersistedStats(statsPath, db, persistedStats);
 		setStatsBaseline(persistedStats);
 	},
 	300_000,
@@ -127,9 +127,9 @@ const _server = serve({
 console.log(`[fairygitmother] Server running on http://${config.host}:${config.port}`);
 
 // Graceful shutdown
-process.on("SIGINT", () => {
+process.on("SIGINT", async () => {
 	console.log("\n[fairygitmother] Shutting down...");
-	savePersistedStats(statsPath, db, persistedStats);
+	await savePersistedStats(statsPath, db, persistedStats);
 	stopAll();
 	process.exit(0);
 });

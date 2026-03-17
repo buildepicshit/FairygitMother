@@ -91,12 +91,12 @@ describe("consensus aggregator", () => {
 	});
 
 	describe("evaluateConsensus", () => {
-		it("returns pending with no votes", () => {
+		it("returns pending with no votes", async () => {
 			const { submissionId } = setupScenario(db);
-			expect(evaluateConsensus(db, submissionId)).toBe("pending");
+			expect(await evaluateConsensus(db, submissionId)).toBe("pending");
 		});
 
-		it("returns approved with 2 approvals (established node)", () => {
+		it("returns approved with 2 approvals (established node)", async () => {
 			const { submissionId, reviewerIds } = setupScenario(db);
 
 			for (let i = 0; i < 2; i++) {
@@ -112,10 +112,10 @@ describe("consensus aggregator", () => {
 					.run();
 			}
 
-			expect(evaluateConsensus(db, submissionId)).toBe("approved");
+			expect(await evaluateConsensus(db, submissionId)).toBe("approved");
 		});
 
-		it("returns rejected with 2 rejections", () => {
+		it("returns rejected with 2 rejections", async () => {
 			const { submissionId, reviewerIds } = setupScenario(db);
 
 			for (let i = 0; i < 2; i++) {
@@ -131,10 +131,10 @@ describe("consensus aggregator", () => {
 					.run();
 			}
 
-			expect(evaluateConsensus(db, submissionId)).toBe("rejected");
+			expect(await evaluateConsensus(db, submissionId)).toBe("rejected");
 		});
 
-		it("returns pending with 1 approve and 1 reject", () => {
+		it("returns pending with 1 approve and 1 reject", async () => {
 			const { submissionId, reviewerIds } = setupScenario(db);
 
 			db.insert(schema.votes)
@@ -159,12 +159,12 @@ describe("consensus aggregator", () => {
 				})
 				.run();
 
-			expect(evaluateConsensus(db, submissionId)).toBe("pending");
+			expect(await evaluateConsensus(db, submissionId)).toBe("pending");
 		});
 	});
 
 	describe("recordConsensus", () => {
-		it("creates consensus result and updates bounty", () => {
+		it("creates consensus result and updates bounty", async () => {
 			const { submissionId, bountyId, reviewerIds } = setupScenario(db);
 
 			// Add 2 approval votes
@@ -181,7 +181,7 @@ describe("consensus aggregator", () => {
 					.run();
 			}
 
-			recordConsensus(db, submissionId, "approved");
+			await recordConsensus(db, submissionId, "approved");
 
 			const result = db
 				.select()
@@ -199,7 +199,7 @@ describe("consensus aggregator", () => {
 			expect(bounty?.status).toBe("approved");
 		});
 
-		it("applies reputation on rejection", () => {
+		it("applies reputation on rejection", async () => {
 			const { submissionId, solverId, reviewerIds } = setupScenario(db);
 
 			for (let i = 0; i < 2; i++) {
@@ -215,7 +215,7 @@ describe("consensus aggregator", () => {
 					.run();
 			}
 
-			recordConsensus(db, submissionId, "rejected");
+			await recordConsensus(db, submissionId, "rejected");
 
 			const solver = db.select().from(schema.nodes).where(eq(schema.nodes.id, solverId)).get();
 			expect(solver?.reputationScore).toBeLessThan(50); // fix_closed: -3

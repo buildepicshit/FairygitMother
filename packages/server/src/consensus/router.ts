@@ -8,21 +8,25 @@ export interface ReviewAssignment {
 	submissionId: string;
 }
 
-export function assignReviewers(db: FairygitMotherDb, submissionId: string): ReviewAssignment[] {
-	const submission = db.select().from(submissions).where(eq(submissions.id, submissionId)).get();
+export async function assignReviewers(
+	db: FairygitMotherDb,
+	submissionId: string,
+): Promise<ReviewAssignment[]> {
+	const submission = (
+		await db.select().from(submissions).where(eq(submissions.id, submissionId))
+	)[0];
 	if (!submission) return [];
 
-	const requiredVotes = getConsensusRequirement(db, submission.nodeId);
+	const requiredVotes = await getConsensusRequirement(db, submission.nodeId);
 
 	// Find idle nodes that aren't the solver
-	const candidates = db
+	const candidates = await db
 		.select()
 		.from(nodes)
-		.where(and(eq(nodes.status, "idle"), ne(nodes.id, submission.nodeId)))
-		.all();
+		.where(and(eq(nodes.status, "idle"), ne(nodes.id, submission.nodeId)));
 
 	// Filter out nodes that have already voted on this submission
-	const existingVotes = db.select().from(votes).where(eq(votes.submissionId, submissionId)).all();
+	const existingVotes = await db.select().from(votes).where(eq(votes.submissionId, submissionId));
 	const alreadyVoted = new Set(existingVotes.map((v) => v.reviewerNodeId));
 
 	const eligible = candidates
@@ -38,13 +42,18 @@ export function assignReviewers(db: FairygitMotherDb, submissionId: string): Rev
 	}));
 }
 
-export function getReviewersNeeded(db: FairygitMotherDb, submissionId: string): number {
-	const submission = db.select().from(submissions).where(eq(submissions.id, submissionId)).get();
+export async function getReviewersNeeded(
+	db: FairygitMotherDb,
+	submissionId: string,
+): Promise<number> {
+	const submission = (
+		await db.select().from(submissions).where(eq(submissions.id, submissionId))
+	)[0];
 	if (!submission) return 3;
 
-	const required = getConsensusRequirement(db, submission.nodeId);
+	const required = await getConsensusRequirement(db, submission.nodeId);
 
-	const existingVotes = db.select().from(votes).where(eq(votes.submissionId, submissionId)).all();
+	const existingVotes = await db.select().from(votes).where(eq(votes.submissionId, submissionId));
 
 	return Math.max(0, required - existingVotes.length);
 }

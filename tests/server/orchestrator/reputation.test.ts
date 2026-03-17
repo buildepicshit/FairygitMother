@@ -54,100 +54,100 @@ describe("reputation", () => {
 	});
 
 	describe("applyReputationEvent", () => {
-		it("increases score on fix_merged", () => {
+		it("increases score on fix_merged", async () => {
 			const node = insertNode(db, { reputationScore: 50 });
-			applyReputationEvent(db, node.id, "fix_merged");
-			expect(getReputation(db, node.id)).toBe(55);
+			await applyReputationEvent(db, node.id, "fix_merged");
+			expect(await getReputation(db, node.id)).toBe(55);
 		});
 
-		it("decreases score on fix_closed", () => {
+		it("decreases score on fix_closed", async () => {
 			const node = insertNode(db, { reputationScore: 50 });
-			applyReputationEvent(db, node.id, "fix_closed");
-			expect(getReputation(db, node.id)).toBe(47);
+			await applyReputationEvent(db, node.id, "fix_closed");
+			expect(await getReputation(db, node.id)).toBe(47);
 		});
 
-		it("increases score on review_accurate", () => {
+		it("increases score on review_accurate", async () => {
 			const node = insertNode(db, { reputationScore: 50 });
-			applyReputationEvent(db, node.id, "review_accurate");
-			expect(getReputation(db, node.id)).toBe(52);
+			await applyReputationEvent(db, node.id, "review_accurate");
+			expect(await getReputation(db, node.id)).toBe(52);
 		});
 
-		it("decreases score on review_inaccurate", () => {
+		it("decreases score on review_inaccurate", async () => {
 			const node = insertNode(db, { reputationScore: 50 });
-			applyReputationEvent(db, node.id, "review_inaccurate");
-			expect(getReputation(db, node.id)).toBe(48.5);
+			await applyReputationEvent(db, node.id, "review_inaccurate");
+			expect(await getReputation(db, node.id)).toBe(48.5);
 		});
 
-		it("clamps at 0", () => {
+		it("clamps at 0", async () => {
 			const node = insertNode(db, { reputationScore: 1 });
-			applyReputationEvent(db, node.id, "fix_closed");
-			expect(getReputation(db, node.id)).toBe(0);
+			await applyReputationEvent(db, node.id, "fix_closed");
+			expect(await getReputation(db, node.id)).toBe(0);
 		});
 
-		it("clamps at 100", () => {
+		it("clamps at 100", async () => {
 			const node = insertNode(db, { reputationScore: 98 });
-			applyReputationEvent(db, node.id, "fix_merged");
-			expect(getReputation(db, node.id)).toBe(100);
+			await applyReputationEvent(db, node.id, "fix_merged");
+			expect(await getReputation(db, node.id)).toBe(100);
 		});
 	});
 
 	describe("applyDailyDecay", () => {
-		it("decays high scores toward 50", () => {
+		it("decays high scores toward 50", async () => {
 			const node = insertNode(db, { reputationScore: 80 });
-			applyDailyDecay(db);
-			const newScore = getReputation(db, node.id);
+			await applyDailyDecay(db);
+			const newScore = await getReputation(db, node.id);
 			expect(newScore).toBeGreaterThan(50);
 			expect(newScore).toBeLessThan(80);
 		});
 
-		it("increases low scores toward 50", () => {
+		it("increases low scores toward 50", async () => {
 			const node = insertNode(db, { reputationScore: 20 });
-			applyDailyDecay(db);
-			const newScore = getReputation(db, node.id);
+			await applyDailyDecay(db);
+			const newScore = await getReputation(db, node.id);
 			expect(newScore).toBeGreaterThan(20);
 			expect(newScore).toBeLessThan(50);
 		});
 
-		it("keeps 50 unchanged", () => {
+		it("keeps 50 unchanged", async () => {
 			const node = insertNode(db, { reputationScore: 50 });
-			applyDailyDecay(db);
-			expect(getReputation(db, node.id)).toBe(50);
+			await applyDailyDecay(db);
+			expect(await getReputation(db, node.id)).toBe(50);
 		});
 	});
 
 	describe("isSuspended", () => {
-		it("returns true below threshold", () => {
+		it("returns true below threshold", async () => {
 			const node = insertNode(db, { reputationScore: 5 });
-			expect(isSuspended(db, node.id)).toBe(true);
+			expect(await isSuspended(db, node.id)).toBe(true);
 		});
 
-		it("returns false above threshold", () => {
+		it("returns false above threshold", async () => {
 			const node = insertNode(db, { reputationScore: 50 });
-			expect(isSuspended(db, node.id)).toBe(false);
+			expect(await isSuspended(db, node.id)).toBe(false);
 		});
 	});
 
 	describe("isOnProbation", () => {
-		it("returns true for new nodes", () => {
+		it("returns true for new nodes", async () => {
 			const node = insertNode(db, { totalBountiesSolved: 0 });
-			expect(isOnProbation(db, node.id)).toBe(true);
+			expect(await isOnProbation(db, node.id)).toBe(true);
 		});
 
-		it("returns false after enough merges", () => {
+		it("returns false after enough merges", async () => {
 			const node = insertNode(db, { totalBountiesSolved: 5 });
-			expect(isOnProbation(db, node.id)).toBe(false);
+			expect(await isOnProbation(db, node.id)).toBe(false);
 		});
 	});
 
 	describe("getConsensusRequirement", () => {
-		it("requires 3-of-3 for probation nodes", () => {
+		it("requires 3-of-3 for probation nodes", async () => {
 			const node = insertNode(db, { totalBountiesSolved: 2 });
-			expect(getConsensusRequirement(db, node.id)).toBe(3);
+			expect(await getConsensusRequirement(db, node.id)).toBe(3);
 		});
 
-		it("requires 2-of-3 for established nodes", () => {
+		it("requires 2-of-3 for established nodes", async () => {
 			const node = insertNode(db, { totalBountiesSolved: 10 });
-			expect(getConsensusRequirement(db, node.id)).toBe(2);
+			expect(await getConsensusRequirement(db, node.id)).toBe(2);
 		});
 	});
 });

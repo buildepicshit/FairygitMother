@@ -50,8 +50,8 @@ export function createDashboardRoutes(db: FairygitMotherDb) {
 	});
 
 	// Grid overview
-	app.get("/", (c) => {
-		const stats = getGridStats(db);
+	app.get("/", async (c) => {
+		const stats = await getGridStats(db);
 
 		const content = html`
 			<section class="hero">
@@ -103,13 +103,12 @@ export function createDashboardRoutes(db: FairygitMotherDb) {
 	});
 
 	// Bounty board
-	app.get("/bounties", (c) => {
-		const allBounties = db
+	app.get("/bounties", async (c) => {
+		const allBounties = await db
 			.select()
 			.from(bounties)
 			.orderBy(desc(bounties.createdAt))
-			.limit(50)
-			.all();
+			.limit(50);
 
 		const rows = allBounties
 			.map(
@@ -137,13 +136,12 @@ export function createDashboardRoutes(db: FairygitMotherDb) {
 	});
 
 	// Leaderboard
-	app.get("/leaderboard", (c) => {
-		const topNodes = db
+	app.get("/leaderboard", async (c) => {
+		const topNodes = await db
 			.select()
 			.from(nodes)
 			.orderBy(desc(nodes.totalBountiesSolved))
-			.limit(20)
-			.all();
+			.limit(20);
 
 		const rows = topNodes
 			.map(
@@ -784,13 +782,12 @@ excludedPaths:
 	});
 
 	// PR Feed
-	app.get("/feed", (c) => {
-		const recent = db
+	app.get("/feed", async (c) => {
+		const recent = await db
 			.select()
 			.from(consensusResults)
 			.orderBy(desc(consensusResults.decidedAt))
-			.limit(20)
-			.all();
+			.limit(20);
 
 		const rows = recent
 			.map(
