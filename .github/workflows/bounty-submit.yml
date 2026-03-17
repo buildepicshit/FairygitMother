@@ -1,0 +1,68 @@
+name: FairygitMother Bounty Submit
+
+# Reusable workflow: maintainers copy this to their repo's .github/workflows/
+# to auto-submit issues labeled "fairygitmother" as bounties.
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  submit-bounty:
+    if: github.event.label.name == 'fairygitmother'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Submit issue as FairygitMother bounty
+        env:
+          ORCHESTRATOR_URL: ${{ vars.FAIRYGITMOTHER_URL || 'https://fairygitmother.ai' }}
+        run: |
+          # Extract issue data from the GitHub event
+          OWNER="${{ github.repository_owner }}"
+          REPO="${{ github.event.repository.name }}"
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+          ISSUE_TITLE="${{ github.event.issue.title }}"
+
+          # Get labels as JSON array
+          LABELS=$(echo '${{ toJSON(github.event.issue.labels.*.name) }}')
+
+          # Detect primary language from repo
+          LANGUAGE=$(curl -s \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            "https://api.github.com/repos/$OWNER/$REPO/languages" \
+            | jq -r 'to_entries | sort_by(-.value) | .[0].key // empty')
+
+          echo "Submitting bounty: $OWNER/$REPO#$ISSUE_NUMBER — $ISSUE_TITLE"
+          echo "Language: $LANGUAGE"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "${ORCHESTRATOR_URL}/api/v1/bounties" \
+            -H "Content-Type: application/json" \
+            -d @- <<EOF
+          {
+            "owner": "$OWNER",
+            "repo": "$REPO",
+            "issueNumber": $ISSUE_NUMBER,
+            "issueTitle": $(echo "$ISSUE_TITLE" | jq -Rs .),
+            "issueBody": $(echo '${{ github.event.issue.body }}' | jq -Rs .),
+            "labels": $LABELS,
+            "language": $(echo "$LANGUAGE" | jq -Rs 'if . == "" then null else . end'),
+            "complexityEstimate": 2
+          }
+          EOF
+          )
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          if [ "$HTTP_CODE" = "201" ]; then
+            BOUNTY_ID=$(echo "$BODY" | jq -r '.bountyId')
+            echo "✅ Bounty submitted: $BOUNTY_ID"
+            echo "::notice::FairygitMother bounty created: $BOUNTY_ID"
+          elif [ "$HTTP_CODE" = "409" ]; then
+            echo "ℹ️ Bounty already exists for this issue"
+          else
+            echo "❌ Failed to submit bounty (HTTP $HTTP_CODE)"
+            echo "$BODY"
+            exit 1
+          fi

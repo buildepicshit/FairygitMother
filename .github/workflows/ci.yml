@@ -43,11 +43,8 @@ jobs:
 
       - name: Run migrations
         env:
-          PGUSER: fgmtest
-          PGPASSWORD: fgmtest
-          PGDATABASE: fairygitmother_test
-          PGHOST: localhost
-        run: psql < migrations/0001_initial_pg.sql
+          DATABASE_URL: postgresql://fgmtest:fgmtest@localhost:5432/fairygitmother_test
+        run: npx tsx packages/server/src/db/migrate-cli.ts
 
       - name: Lint
         run: pnpm lint
