@@ -40,6 +40,10 @@ export async function runMigrations(connectionString: string, migrationsDir: str
 		await applyMigration(client, migrationsDir, 4, "0004_add_rejection_reasons.sql");
 	}
 
+	if (version < 5) {
+		await applyMigration(client, migrationsDir, 5, "0005_add_file_context.sql");
+	}
+
 	await client.end();
 }
 

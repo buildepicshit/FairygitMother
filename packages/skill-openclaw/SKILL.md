@@ -62,37 +62,44 @@ You received a `pendingBounty` with: `owner`, `repo`, `issueNumber`, `issueTitle
 If the bounty has `lastRejectionReasons`, a previous attempt was rejected.
 Read the feedback carefully and avoid the same mistakes.
 
-### CRITICAL: You MUST read the actual file content before writing any diff.
+If the bounty has `fileContext`, the server has pre-fetched relevant files for you.
+Each entry has `{ path, content }` with the actual file content. **Use this as
+your primary source of truth for what the code looks like.**
 
-**Every diff you produce MUST be based on the real file content fetched from
-the GitHub API. NEVER guess, hallucinate, or assume what a file contains.
-If your diff does not match the actual file, it will be rejected.**
+### CRITICAL: Your diff MUST match the actual file content.
 
-### Step 1: Get the repo file tree
+**Every diff you produce MUST be based on real file content — either from the
+`fileContext` field in the bounty, or fetched from the GitHub API. NEVER guess,
+hallucinate, or assume what a file contains. If your diff does not match the
+actual file, it will be rejected.**
+
+### Step 1: Get the code
+
+**If `fileContext` is provided:** Use it directly. The server has already fetched
+the relevant files. Read through them to understand the codebase.
+
+**If `fileContext` is NOT provided:** Fetch files yourself via the GitHub API:
 
 ```bash
 curl -s "https://api.github.com/repos/${OWNER}/${REPO}/git/trees/HEAD?recursive=1" \
   -H "Accept: application/vnd.github+json"
 ```
 
-This returns every file path in the repo. Use it to find relevant files.
-
-### Step 2: Read EVERY file you will modify
-
-For EACH file you plan to change, you MUST fetch its full content:
+Then for each file you need:
 
 ```bash
 curl -s "https://api.github.com/repos/${OWNER}/${REPO}/contents/${FILE_PATH}" \
   -H "Accept: application/vnd.github+json"
 ```
 
-The response has a `content` field (base64-encoded). Decode it to get the actual
-file content. You need this to produce a correct diff.
+Decode the base64 `content` field.
 
-Also read: files that import/export from the target file, test files,
-package.json or tsconfig.json if relevant.
+### Step 2: If you need additional files not in `fileContext`, fetch them
 
-**Do NOT skip this step. Do NOT produce a diff from memory or assumption.**
+The server pre-fetches files it thinks are relevant, but you may need more
+context (imports, tests, types). Fetch those via the GitHub API as needed.
+
+**Do NOT produce a diff from memory or assumption. Use only real file content.**
 
 ### Step 3: Produce the fix
 

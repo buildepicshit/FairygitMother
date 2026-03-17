@@ -43,6 +43,7 @@ export const bounties = pgTable("bounties", {
 	submissionCount: integer("submission_count").notNull().default(0),
 	lastRejectionReasons:
 		jsonb("last_rejection_reasons").$type<Array<{ reasoning: string; issuesFound: string[] }>>(),
+	fileContext: jsonb("file_context").$type<Array<{ path: string; content: string }>>(),
 	createdAt: text("created_at")
 		.notNull()
 		.$defaultFn(() => new Date().toISOString()),

@@ -6,6 +6,7 @@ import { logAudit } from "../audit.js";
 import { scanDiff } from "../consensus/safety.js";
 import type { FairygitMotherDb } from "../db/client.js";
 import { bounties, repos, submissions } from "../db/schema.js";
+import { enrichBountyContext } from "../orchestrator/enrich.js";
 import { dequeueAndAssign } from "../orchestrator/queue.js";
 import { findNodeByApiKey } from "../orchestrator/registry.js";
 import { emitEvent } from "./feed.js";
@@ -141,6 +142,19 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 			},
 		});
 		await logAudit(db, "bounty_created", bountyId, { owner, repo, issueNumber });
+
+		// Pre-fetch file context from GitHub (fire-and-forget)
+		const githubToken = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
+		enrichBountyContext(
+			db,
+			bountyId,
+			owner,
+			repo,
+			issueTitle,
+			issueBody,
+			language,
+			githubToken,
+		).catch((err) => console.error(`[bounties] Enrichment failed for ${bountyId}:`, err));
 
 		// Push-notify idle nodes that work is available
 		pushToIdleNodes({
