@@ -70,7 +70,7 @@ export async function canSubmitPrForRepo(
 
 	const result = (
 		await db
-			.select({ count: sql<number>`count(*)` })
+			.select({ count: sql<number>`count(*)::int` })
 			.from(consensusResults)
 			.innerJoin(
 				bounties,

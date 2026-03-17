@@ -27,17 +27,17 @@ export async function getGridStats(db: FairygitMotherDb): Promise<GridStats> {
 	const activeNodes =
 		(
 			await db
-				.select({ count: sql<number>`count(*)` })
+				.select({ count: sql<number>`count(*)::int` })
 				.from(nodes)
 				.where(ne(nodes.status, "offline"))
 		)[0]?.count ?? 0;
 
-	const totalNodes = (await db.select({ count: sql<number>`count(*)` }).from(nodes))[0]?.count ?? 0;
+	const totalNodes = (await db.select({ count: sql<number>`count(*)::int` }).from(nodes))[0]?.count ?? 0;
 
 	const queueDepth =
 		(
 			await db
-				.select({ count: sql<number>`count(*)` })
+				.select({ count: sql<number>`count(*)::int` })
 				.from(bounties)
 				.where(eq(bounties.status, "queued"))
 		)[0]?.count ?? 0;
@@ -45,7 +45,7 @@ export async function getGridStats(db: FairygitMotherDb): Promise<GridStats> {
 	const bountiesInProgress =
 		(
 			await db
-				.select({ count: sql<number>`count(*)` })
+				.select({ count: sql<number>`count(*)::int` })
 				.from(bounties)
 				.where(eq(bounties.status, "in_progress"))
 		)[0]?.count ?? 0;
@@ -56,7 +56,7 @@ export async function getGridStats(db: FairygitMotherDb): Promise<GridStats> {
 	const prsToday =
 		(
 			await db
-				.select({ count: sql<number>`count(*)` })
+				.select({ count: sql<number>`count(*)::int` })
 				.from(consensusResults)
 				.where(gte(consensusResults.decidedAt, todayStart.toISOString()))
 		)[0]?.count ?? 0;
@@ -64,7 +64,7 @@ export async function getGridStats(db: FairygitMotherDb): Promise<GridStats> {
 	const prsAllTime =
 		(
 			await db
-				.select({ count: sql<number>`count(*)` })
+				.select({ count: sql<number>`count(*)::int` })
 				.from(consensusResults)
 				.where(eq(consensusResults.outcome, "approved"))
 		)[0]?.count ?? 0;
@@ -72,7 +72,7 @@ export async function getGridStats(db: FairygitMotherDb): Promise<GridStats> {
 	const tokenSum =
 		(
 			await db
-				.select({ total: sql<number>`COALESCE(SUM(${nodes.totalTokensDonated}), 0)` })
+				.select({ total: sql<number>`COALESCE(SUM(${nodes.totalTokensDonated}), 0)::int` })
 				.from(nodes)
 		)[0]?.total ?? 0;
 
@@ -80,7 +80,7 @@ export async function getGridStats(db: FairygitMotherDb): Promise<GridStats> {
 		(
 			await db
 				.select({
-					avg: sql<number>`COALESCE(AVG(${submissions.solveDurationMs}), 0)`,
+					avg: sql<number>`COALESCE(AVG(${submissions.solveDurationMs}), 0)::int`,
 				})
 				.from(submissions)
 		)[0]?.avg ?? 0;
@@ -88,13 +88,13 @@ export async function getGridStats(db: FairygitMotherDb): Promise<GridStats> {
 	const totalApproved =
 		(
 			await db
-				.select({ count: sql<number>`count(*)` })
+				.select({ count: sql<number>`count(*)::int` })
 				.from(consensusResults)
 				.where(eq(consensusResults.outcome, "approved"))
 		)[0]?.count ?? 0;
 
 	const totalDecided =
-		(await db.select({ count: sql<number>`count(*)` }).from(consensusResults))[0]?.count ?? 0;
+		(await db.select({ count: sql<number>`count(*)::int` }).from(consensusResults))[0]?.count ?? 0;
 
 	const base = statsBaseline;
 

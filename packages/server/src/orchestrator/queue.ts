@@ -144,7 +144,7 @@ export async function requeueStaleDiffs(
 export async function getQueueDepth(db: FairygitMotherDb): Promise<number> {
 	const result = (
 		await db
-			.select({ count: sql<number>`count(*)` })
+			.select({ count: sql<number>`count(*)::int` })
 			.from(bounties)
 			.where(eq(bounties.status, "queued"))
 	)[0];
