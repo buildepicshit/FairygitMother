@@ -99,20 +99,25 @@ export async function recordConsensus(
 				})
 				.where(eq(nodes.id, submission.nodeId));
 		} else {
-			// Rejection: push feedback to solver, give them another shot if attempts remain
+			// Rejection: store feedback on bounty and requeue for another solver to try
 			const MAX_SUBMISSIONS = 3;
 			const rejectionReasons = allVotes
 				.filter((v) => v.decision === "reject")
 				.map((v) => ({ reasoning: v.reasoning, issuesFound: v.issuesFound }));
 
 			if (bounty && bounty.submissionCount < MAX_SUBMISSIONS) {
-				// Move back to assigned — same solver gets another attempt with feedback
+				// Requeue with feedback — any solver that picks it up sees what went wrong
 				await db
 					.update(bounties)
-					.set({ status: "assigned", updatedAt: new Date().toISOString() })
+					.set({
+						status: "queued",
+						assignedNodeId: null,
+						lastRejectionReasons: rejectionReasons,
+						updatedAt: new Date().toISOString(),
+					})
 					.where(eq(bounties.id, submission.bountyId));
 
-				// Push rejection feedback to solver via WebSocket
+				// Also push feedback to the original solver if connected
 				pushToNode(submission.nodeId, {
 					type: "rejection_feedback",
 					bountyId: submission.bountyId,
@@ -124,7 +129,11 @@ export async function recordConsensus(
 				// Max attempts exhausted — terminal rejection
 				await db
 					.update(bounties)
-					.set({ status: "rejected", updatedAt: new Date().toISOString() })
+					.set({
+						status: "rejected",
+						lastRejectionReasons: rejectionReasons,
+						updatedAt: new Date().toISOString(),
+					})
 					.where(eq(bounties.id, submission.bountyId));
 			}
 		}

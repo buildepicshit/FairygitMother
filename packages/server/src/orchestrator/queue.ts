@@ -13,6 +13,7 @@ export interface QueuedBounty {
 	language: string | null;
 	complexityEstimate: number;
 	priority: number;
+	lastRejectionReasons: Array<{ reasoning: string; issuesFound: string[] }> | null;
 }
 
 export async function enqueue(db: FairygitMotherDb, bountyId: string, priority?: number) {
@@ -73,6 +74,7 @@ export async function dequeueForNode(
 			language: bounty.language,
 			complexityEstimate: bounty.complexityEstimate,
 			priority: bounty.priority,
+			lastRejectionReasons: bounty.lastRejectionReasons as QueuedBounty["lastRejectionReasons"],
 		};
 	}
 

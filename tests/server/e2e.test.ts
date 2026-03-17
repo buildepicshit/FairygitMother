@@ -304,9 +304,9 @@ describe("E2E: FairygitMother bounty lifecycle", () => {
 			const bounty = (
 				await db.select().from(schema.bounties).where(eq(schema.bounties.id, bountyId))
 			)[0];
-			// With feedback loop, rejected bounties go back to "assigned" for retry
+			// With feedback loop, rejected bounties requeue for another solver to try
 			// (terminal "rejected" only after max submission attempts exhausted)
-			expect(bounty?.status).toBe("assigned");
+			expect(bounty?.status).toBe("queued");
 
 			// Verify consensus result
 			const consensusRow = (
@@ -673,9 +673,9 @@ describe("E2E: FairygitMother bounty lifecycle", () => {
 			const bounty = (
 				await db.select().from(schema.bounties).where(eq(schema.bounties.id, bountyId))
 			)[0];
-			// With feedback loop, rejected bounties go back to "assigned" for retry
+			// With feedback loop, rejected bounties requeue for another solver to try
 			// (terminal "rejected" only after max submission attempts exhausted)
-			expect(bounty?.status).toBe("assigned");
+			expect(bounty?.status).toBe("queued");
 
 			// Reviewer who approved gets inaccurate penalty (-1.5)
 			const r1Node = (
