@@ -44,7 +44,7 @@ function assert(condition: boolean, message: string) {
 }
 
 async function main() {
-	console.log(`\n=== FairygitMother Live E2E Test ===`);
+	console.log("\n=== FairygitMother Live E2E Test ===");
 	console.log(`Server: ${BASE}\n`);
 
 	// 1. Health check
@@ -86,7 +86,8 @@ async function main() {
 		repo: "FairygitMother",
 		issueNumber: 9999,
 		issueTitle: "[E2E Test] Pipeline validation",
-		issueBody: "This is an automated E2E pipeline test. This bounty tests the full lifecycle: submit → claim → fix → review → consensus.",
+		issueBody:
+			"This is an automated E2E pipeline test. This bounty tests the full lifecycle: submit → claim → fix → review → consensus.",
 		labels: ["e2e-test"],
 		language: "TypeScript",
 		complexityEstimate: 1,
@@ -126,40 +127,56 @@ async function main() {
 		' "No token goes unused."',
 	].join("\n");
 
-	const fix = await api(`/api/v1/bounties/${bountyId}/submit`, "POST", {
-		diff,
-		explanation: "Added the tagline to the README header for clarity",
-		filesChanged: ["README.md"],
-		testsPassed: true,
-		tokensUsed: 500,
-		solverBackend: "openclaw",
-		solveDurationMs: 3000,
-	}, solverKey);
+	const fix = await api(
+		`/api/v1/bounties/${bountyId}/submit`,
+		"POST",
+		{
+			diff,
+			explanation: "Added the tagline to the README header for clarity",
+			filesChanged: ["README.md"],
+			testsPassed: true,
+			tokensUsed: 500,
+			solverBackend: "openclaw",
+			solveDurationMs: 3000,
+		},
+		solverKey,
+	);
 
 	assert(fix.data.status === "accepted", `Fix accepted: ${fix.data.submissionId}`);
 	const submissionId = fix.data.submissionId as string;
 
 	// 6. Reviewer 1 approves
 	console.log("\n6. Reviewer 1 voting...");
-	const vote1 = await api(`/api/v1/reviews/${submissionId}/vote`, "POST", {
-		decision: "approve",
-		reasoning: "Clean minimal change. The tagline adds context without modifying functionality. LGTM.",
-		issuesFound: [],
-		confidence: 0.95,
-		testsRun: false,
-	}, r1Key);
+	const vote1 = await api(
+		`/api/v1/reviews/${submissionId}/vote`,
+		"POST",
+		{
+			decision: "approve",
+			reasoning:
+				"Clean minimal change. The tagline adds context without modifying functionality. LGTM.",
+			issuesFound: [],
+			confidence: 0.95,
+			testsRun: false,
+		},
+		r1Key,
+	);
 	assert(vote1.data.accepted === true, "Vote 1 accepted");
 	console.log(`  Consensus status: ${vote1.data.consensusStatus}`);
 
 	// 7. Reviewer 2 approves
 	console.log("\n7. Reviewer 2 voting...");
-	const vote2 = await api(`/api/v1/reviews/${submissionId}/vote`, "POST", {
-		decision: "approve",
-		reasoning: "Straightforward documentation improvement. No code impact. Approved.",
-		issuesFound: [],
-		confidence: 0.9,
-		testsRun: false,
-	}, r2Key);
+	const vote2 = await api(
+		`/api/v1/reviews/${submissionId}/vote`,
+		"POST",
+		{
+			decision: "approve",
+			reasoning: "Straightforward documentation improvement. No code impact. Approved.",
+			issuesFound: [],
+			confidence: 0.9,
+			testsRun: false,
+		},
+		r2Key,
+	);
 	assert(vote2.data.accepted === true, "Vote 2 accepted");
 	console.log(`  Consensus status: ${vote2.data.consensusStatus}`);
 
@@ -173,13 +190,18 @@ async function main() {
 		});
 		const r3Key = reviewer3.data.apiKey as string;
 
-		const vote3 = await api(`/api/v1/reviews/${submissionId}/vote`, "POST", {
-			decision: "approve",
-			reasoning: "Documentation-only change. No regression risk. Approved.",
-			issuesFound: [],
-			confidence: 0.85,
-			testsRun: false,
-		}, r3Key);
+		const vote3 = await api(
+			`/api/v1/reviews/${submissionId}/vote`,
+			"POST",
+			{
+				decision: "approve",
+				reasoning: "Documentation-only change. No regression risk. Approved.",
+				issuesFound: [],
+				confidence: 0.85,
+				testsRun: false,
+			},
+			r3Key,
+		);
 		assert(vote3.data.accepted === true, "Vote 3 accepted");
 		console.log(`  Consensus status: ${vote3.data.consensusStatus}`);
 		assert(vote3.data.consensusStatus === "approved", "Consensus reached with 3/3");
