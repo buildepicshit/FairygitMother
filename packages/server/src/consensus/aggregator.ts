@@ -1,6 +1,7 @@
 import { type GitHubClient, generateId } from "@fairygitmother/core";
 import { eq, sql } from "drizzle-orm";
 import { emitEvent } from "../api/feed.js";
+import { pushToNode } from "../api/node-push.js";
 import { logAudit } from "../audit.js";
 import type { FairygitMotherDb } from "../db/client.js";
 import { bounties, consensusResults, nodes, submissions, votes } from "../db/schema.js";
@@ -81,22 +82,51 @@ export async function recordConsensus(
 	)[0];
 
 	if (submission) {
-		const newStatus = outcome === "approved" ? "approved" : "rejected";
-		await db
-			.update(bounties)
-			.set({ status: newStatus, updatedAt: new Date().toISOString() })
-			.where(eq(bounties.id, submission.bountyId));
+		const bounty = (
+			await db.select().from(bounties).where(eq(bounties.id, submission.bountyId))
+		)[0];
 
-		// Apply reputation events
-		// Note: fix_merged/fix_closed reputation is applied in cleanup.ts when
-		// the actual GitHub PR is confirmed merged/closed — not here at consensus time.
 		if (outcome === "approved") {
+			await db
+				.update(bounties)
+				.set({ status: "approved", updatedAt: new Date().toISOString() })
+				.where(eq(bounties.id, submission.bountyId));
+
 			await db
 				.update(nodes)
 				.set({
 					totalBountiesSolved: sql`${nodes.totalBountiesSolved} + 1`,
 				})
 				.where(eq(nodes.id, submission.nodeId));
+		} else {
+			// Rejection: push feedback to solver, give them another shot if attempts remain
+			const MAX_SUBMISSIONS = 3;
+			const rejectionReasons = allVotes
+				.filter((v) => v.decision === "reject")
+				.map((v) => ({ reasoning: v.reasoning, issuesFound: v.issuesFound }));
+
+			if (bounty && bounty.submissionCount < MAX_SUBMISSIONS) {
+				// Move back to assigned — same solver gets another attempt with feedback
+				await db
+					.update(bounties)
+					.set({ status: "assigned", updatedAt: new Date().toISOString() })
+					.where(eq(bounties.id, submission.bountyId));
+
+				// Push rejection feedback to solver via WebSocket
+				pushToNode(submission.nodeId, {
+					type: "rejection_feedback",
+					bountyId: submission.bountyId,
+					submissionId,
+					attemptsRemaining: MAX_SUBMISSIONS - bounty.submissionCount,
+					reasons: rejectionReasons,
+				});
+			} else {
+				// Max attempts exhausted — terminal rejection
+				await db
+					.update(bounties)
+					.set({ status: "rejected", updatedAt: new Date().toISOString() })
+					.where(eq(bounties.id, submission.bountyId));
+			}
 		}
 
 		// Reward accurate reviewers

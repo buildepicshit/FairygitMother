@@ -130,3 +130,34 @@ export type FeedEvent =
 	| { type: "node_joined"; nodeId: string; displayName: string | null }
 	| { type: "node_left"; nodeId: string }
 	| { type: "stats_update"; stats: GridStats };
+
+// ── Node Push Messages (targeted WebSocket) ───────────────────
+
+export interface RejectionFeedback {
+	type: "rejection_feedback";
+	bountyId: string;
+	submissionId: string;
+	attemptsRemaining: number;
+	reasons: Array<{ reasoning: string; issuesFound: string[] }>;
+}
+
+export type NodePushMessage =
+	| { type: "connected"; nodeId: string; timestamp: string }
+	| {
+			type: "work_available";
+			bountyId: string;
+			owner: string;
+			repo: string;
+			issueTitle: string;
+			language: string | null;
+			complexityEstimate: number;
+	  }
+	| {
+			type: "review_available";
+			submissionId: string;
+			bountyId: string;
+			owner: string;
+			repo: string;
+			issueTitle: string;
+	  }
+	| RejectionFeedback;
