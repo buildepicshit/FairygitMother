@@ -13,15 +13,14 @@ const PUBLIC_PATHS = new Set([
 	"/api/v1/feed",
 	"/api/v1/bounties",
 	"/api/v1/bounties/claim",
+	"/api/v1/admin/reset",
 ]);
 
 function isPublicPath(pathname: string): boolean {
 	if (PUBLIC_PATHS.has(pathname)) return true;
 	// Submissions endpoint is public (GET /api/v1/bounties/:id/submissions)
 	if (/^\/api\/v1\/bounties\/[^/]+\/submissions$/.test(pathname)) return true;
-	// Dashboard and static assets are served outside /api, but just in case
-	if (pathname === "/" || pathname.startsWith("/static/")) return true;
-	// Dashboard HTML routes (non-API)
+	// Non-API routes (dashboard, static assets) don't require auth
 	if (!pathname.startsWith("/api/")) return true;
 	return false;
 }
