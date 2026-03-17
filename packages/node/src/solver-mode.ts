@@ -28,12 +28,7 @@ export function selectSolverMode(
 	trustedRepos: TrustedRepo[],
 	dockerAvailable: boolean,
 ): SolverModeDecision {
-	// Check if repo is explicitly trusted
-	const trusted = trustedRepos.some(
-		(r) =>
-			r.owner.toLowerCase() === owner.toLowerCase() &&
-			(r.repo === "*" || r.repo.toLowerCase() === repo.toLowerCase()),
-	);
+	const trusted = isRepoTrusted(owner, repo, trustedRepos);
 
 	if (trusted && dockerAvailable) {
 		return {

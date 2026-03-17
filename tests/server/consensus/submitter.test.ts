@@ -176,7 +176,7 @@ describe("PR submitter", () => {
 		});
 
 		it("creates fork, branch, commit, and PR through GitHub API", async () => {
-			const { submissionId, bountyId } = await setupSubmissionScenario(db);
+			const { submissionId } = await setupSubmissionScenario(db);
 			await addConsensusApproval(db, submissionId);
 
 			const github = createMockGitHub();

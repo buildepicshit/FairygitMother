@@ -75,9 +75,6 @@ export async function matchBountyToNode(
 ): Promise<string | null> {
 	const idleNodes = await db.select().from(nodes).where(eq(nodes.status, "idle"));
 
-	if (idleNodes.length === 0) return null;
-
-	// Sort by reputation (best first), then filter by language capability
 	const candidates = idleNodes
 		.filter((node) => {
 			if (!language) return true;
@@ -86,7 +83,7 @@ export async function matchBountyToNode(
 		})
 		.sort((a, b) => b.reputationScore - a.reputationScore);
 
-	return candidates.length > 0 ? candidates[0].id : null;
+	return candidates[0]?.id ?? null;
 }
 
 export async function pruneStaleNodes(db: FairygitMotherDb, timeoutMs: number): Promise<number> {
@@ -115,10 +112,5 @@ export async function getActiveNodeCount(db: FairygitMotherDb): Promise<number> 
 			.from(nodes)
 			.where(ne(nodes.status, "offline"))
 	)[0];
-	return result?.count ?? 0;
-}
-
-export async function getTotalNodeCount(db: FairygitMotherDb): Promise<number> {
-	const result = (await db.select({ count: sql<number>`count(*)::int` }).from(nodes))[0];
 	return result?.count ?? 0;
 }

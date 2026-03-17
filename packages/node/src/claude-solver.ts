@@ -36,6 +36,19 @@ export interface ReviewResult {
 	tokensUsed: number;
 }
 
+// ── Helpers ─────────────────────────────────────────────────────
+
+function extractTextFromResponse(response: Anthropic.Message): string {
+	return response.content
+		.filter((block): block is Anthropic.TextBlock => block.type === "text")
+		.map((block) => block.text)
+		.join("\n");
+}
+
+function getTokensUsed(response: Anthropic.Message): number {
+	return (response.usage.input_tokens ?? 0) + (response.usage.output_tokens ?? 0);
+}
+
 // ── Solver ─────────────────────────────────────────────────────
 
 export async function solveBounty(
@@ -57,15 +70,9 @@ export async function solveBounty(
 			messages: [{ role: "user", content: prompt }],
 		});
 
-		const tokensUsed = (response.usage.input_tokens ?? 0) + (response.usage.output_tokens ?? 0);
+		const tokensUsed = getTokensUsed(response);
+		const text = extractTextFromResponse(response);
 
-		// Extract text content
-		const text = response.content
-			.filter((block): block is Anthropic.TextBlock => block.type === "text")
-			.map((block) => block.text)
-			.join("\n");
-
-		// Parse the JSON response
 		const parsed = parseAgentResponse(text, files);
 		if (!parsed) {
 			return {
@@ -116,12 +123,8 @@ export async function reviewFix(
 			messages: [{ role: "user", content: prompt }],
 		});
 
-		const tokensUsed = (response.usage.input_tokens ?? 0) + (response.usage.output_tokens ?? 0);
-
-		const text = response.content
-			.filter((block): block is Anthropic.TextBlock => block.type === "text")
-			.map((block) => block.text)
-			.join("\n");
+		const tokensUsed = getTokensUsed(response);
+		const text = extractTextFromResponse(response);
 
 		const parsed = parseReviewResponse(text);
 		if (!parsed) {

@@ -390,11 +390,11 @@ export async function containerExec(
 			{ timeout: timeoutMs, maxBuffer: 10 * 1024 * 1024 },
 			(err, stdout, stderr) => {
 				if (err) {
-					const code = (err as any).code;
+					const execErr = err as Error & { code?: string; killed?: boolean };
 					// Distinguish between timeout and normal failure
-					if (code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
+					if (execErr.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
 						reject(new Error("Container command output too large"));
-					} else if ((err as any).killed) {
+					} else if (execErr.killed) {
 						reject(new Error(`Container command timed out after ${timeoutMs}ms`));
 					} else {
 						reject(new Error(`Container command failed: ${stderr || err.message}`));

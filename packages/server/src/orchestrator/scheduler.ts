@@ -35,11 +35,10 @@ export function stopTask(name: string) {
 }
 
 export function stopAll() {
-	for (const [name] of tasks) {
-		stopTask(name);
+	for (const scheduled of tasks.values()) {
+		if (scheduled.timer) {
+			clearInterval(scheduled.timer);
+		}
 	}
-}
-
-export function getScheduledTasks(): string[] {
-	return Array.from(tasks.keys());
+	tasks.clear();
 }

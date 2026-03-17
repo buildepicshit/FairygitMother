@@ -2,7 +2,7 @@ import type { FeedEvent } from "@fairygitmother/core";
 
 type Listener = (event: FeedEvent) => void;
 
-let listeners: Set<Listener> = new Set();
+const listeners: Set<Listener> = new Set();
 
 export function addFeedListener(listener: Listener) {
 	listeners.add(listener);
@@ -24,5 +24,5 @@ export function getListenerCount(): number {
 }
 
 export function resetFeed() {
-	listeners = new Set();
+	listeners.clear();
 }
