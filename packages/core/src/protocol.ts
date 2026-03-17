@@ -17,7 +17,7 @@ export interface RegisterNodeResponse {
 
 // ── Versioning ────────────────────────────────────────────────
 
-export const CURRENT_SKILL_VERSION = "0.5.0";
+export const CURRENT_SKILL_VERSION = "0.5.1";
 export const CURRENT_API_VERSION = "1.0.0";
 
 export interface VersionUpdateInfo {
