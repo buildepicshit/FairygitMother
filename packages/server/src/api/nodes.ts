@@ -145,10 +145,13 @@ export function createNodeRoutes(db: FairygitMotherDb) {
 			return c.json({ error: "Invalid request", details: parsed.error.issues }, 400);
 		}
 
-		const { displayName, capabilities, solverBackend } = parsed.data;
-		const result = await registerNode(db, displayName, capabilities, solverBackend);
+		const { displayName, capabilities, solverBackend, apiKey } = parsed.data;
+		const result = await registerNode(db, displayName, capabilities, solverBackend, apiKey);
 
-		return c.json({ nodeId: result.id, apiKey: result.apiKey }, 201);
+		return c.json(
+			{ nodeId: result.id, apiKey: result.apiKey, reconnected: result.reconnected },
+			result.reconnected ? 200 : 201,
+		);
 	});
 
 	// POST /api/v1/nodes/:id/heartbeat

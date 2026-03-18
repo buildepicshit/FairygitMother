@@ -32,7 +32,9 @@ export class FairygitMotherClient {
 	}
 
 	async register(request: RegisterNodeRequest): Promise<RegisterNodeResponse> {
-		const res = await this.fetch("/api/v1/nodes/register", "POST", request);
+		// Send existing apiKey so the server can reconnect instead of duplicating
+		const payload = this.apiKey ? { ...request, apiKey: this.apiKey } : request;
+		const res = await this.fetch("/api/v1/nodes/register", "POST", payload);
 		this.nodeId = res.nodeId;
 		this.apiKey = res.apiKey;
 		return res;

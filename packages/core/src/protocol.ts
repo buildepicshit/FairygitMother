@@ -7,12 +7,14 @@ export const RegisterNodeRequestSchema = z.object({
 	displayName: z.string().nullable().default(null),
 	capabilities: NodeCapabilitiesSchema,
 	solverBackend: z.string(),
+	apiKey: z.string().optional(),
 });
 export type RegisterNodeRequest = z.infer<typeof RegisterNodeRequestSchema>;
 
 export interface RegisterNodeResponse {
 	nodeId: string;
 	apiKey: string;
+	reconnected: boolean;
 }
 
 // ── Versioning ────────────────────────────────────────────────

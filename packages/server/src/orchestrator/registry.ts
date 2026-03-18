@@ -10,12 +10,41 @@ export interface RegisteredNode {
 	apiKey: string;
 }
 
+export interface RegisterResult {
+	id: string;
+	apiKey: string;
+	reconnected: boolean;
+}
+
 export async function registerNode(
 	db: FairygitMotherDb,
 	displayName: string | null,
 	capabilities: NodeCapabilities,
 	solverBackend: string,
-): Promise<RegisteredNode> {
+	existingApiKey?: string,
+): Promise<RegisterResult> {
+	// If the node sends an existing apiKey, try to reconnect
+	if (existingApiKey) {
+		const existing = await findNodeByApiKey(db, existingApiKey);
+		if (existing) {
+			await db
+				.update(nodes)
+				.set({
+					status: "idle",
+					displayName,
+					capabilities,
+					solverBackend,
+					lastHeartbeat: new Date().toISOString(),
+				})
+				.where(eq(nodes.id, existing.id));
+
+			emitEvent({ type: "node_joined", nodeId: existing.id, displayName });
+			await logAudit(db, "node_reconnected", existing.id, { displayName, solverBackend });
+
+			return { id: existing.id, apiKey: existing.apiKey, reconnected: true };
+		}
+	}
+
 	const id = generateId("node");
 	const apiKey = generateApiKey();
 
@@ -35,7 +64,7 @@ export async function registerNode(
 	emitEvent({ type: "node_joined", nodeId: id, displayName });
 	await logAudit(db, "node_registered", id, { displayName, solverBackend });
 
-	return { id, apiKey };
+	return { id, apiKey, reconnected: false };
 }
 
 export async function heartbeat(
