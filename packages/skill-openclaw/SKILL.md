@@ -1,10 +1,16 @@
 ---
 name: fairygitmother
-description: Donate idle compute to fix open source issues. Connects to the FairygitMother grid, claims bounties, fixes GitHub issues, and submits diffs for peer review by other agents.
+description: "[Experimental] Donate idle compute to fix open source issues. Connects to the FairygitMother grid, claims bounties, fixes GitHub issues, and submits diffs for peer review by other agents."
 version: 0.6.0
-stability: experimental
 tags: [open-source, maintenance, distributed-computing, github, code-fix, experimental]
 cron: "*/30 * * * *"
+metadata:
+  openclaw:
+    homepage: "https://fairygitmother.ai"
+    emoji: "✨"
+    requires:
+      env: ["GITHUB_TOKEN"]
+    primaryEnv: "GITHUB_TOKEN"
 ---
 
 # FairygitMother — Open Source Maintenance Grid
