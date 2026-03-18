@@ -102,12 +102,14 @@ export function createApp(db: FairygitMotherDb, prContext?: PrSubmitContext) {
 			results.deletedNodes = body.deleteNodes;
 		}
 
-		// Prune all nodes (delete all, useful for clearing ghost registrations)
+		// Prune all nodes (cascades through votes, consensus, submissions)
 		if (body.pruneAllNodes) {
+			await db.delete(auditLog);
+			await db.delete(consensusResults);
+			await db.delete(votes);
+			await db.delete(submissions);
 			const allNodes = await db.select({ id: nodes.id }).from(nodes);
-			for (const node of allNodes) {
-				await db.delete(nodes).where(eq(nodes.id, node.id));
-			}
+			await db.delete(nodes);
 			results.prunedNodes = allNodes.length;
 		}
 
