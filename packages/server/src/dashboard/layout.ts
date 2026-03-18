@@ -2,7 +2,7 @@ import { html } from "hono/html";
 
 export function layout(title: string, content: string, activeRoute = "") {
 	const navLink = (href: string, label: string) =>
-		`<a href="${href}" class="${activeRoute === href ? "active" : ""}">${label}</a>`;
+		html`<a href="${href}" class="${activeRoute === href ? "active" : ""}">${label}</a>`;
 
 	return html`<!DOCTYPE html>
 <html lang="en">
@@ -20,12 +20,12 @@ export function layout(title: string, content: string, activeRoute = "") {
 			FairygitMother
 		</a>
 		<div class="nav-links">
-			$${navLink("/", "Grid")}
-			$${navLink("/bounties", "Bounties")}
-			$${navLink("/leaderboard", "Leaderboard")}
-			$${navLink("/analytics", "Analytics")}
-			$${navLink("/docs", "Docs")}
-			$${navLink("/feed", "Feed")}
+			${navLink("/", "Grid")}
+			${navLink("/bounties", "Bounties")}
+			${navLink("/leaderboard", "Leaderboard")}
+			${navLink("/analytics", "Analytics")}
+			${navLink("/docs", "Docs")}
+			${navLink("/feed", "Feed")}
 		</div>
 	</nav>
 	<main>${content}</main>
