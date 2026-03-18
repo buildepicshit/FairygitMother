@@ -16,6 +16,7 @@ const PUBLIC_PATHS = new Set([
 	"/api/v1/admin/reset",
 	"/api/v1/admin/close-pr",
 	"/api/v1/admin/cleanup",
+	"/api/v1/admin/requeue",
 ]);
 
 function isPublicPath(pathname: string): boolean {

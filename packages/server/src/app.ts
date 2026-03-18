@@ -142,6 +142,48 @@ export function createApp(db: FairygitMotherDb, prContext?: PrSubmitContext) {
 		return c.json({ closed: true, owner, repo, prNumber });
 	});
 
+	// Admin: requeue a bounty with optional feedback context
+	app.post("/api/v1/admin/requeue", async (c) => {
+		const body = await c.req.json().catch(() => ({}));
+		if (body.secret !== process.env.ADMIN_SECRET) {
+			return c.json({ error: "Forbidden" }, 403);
+		}
+
+		const { bountyId, feedback } = body;
+		if (!bountyId) {
+			return c.json({ error: "bountyId required" }, 400);
+		}
+
+		const bounty = (
+			await db.select().from(bounties).where(eq(bounties.id, bountyId))
+		)[0];
+		if (!bounty) {
+			return c.json({ error: "Bounty not found" }, 404);
+		}
+
+		const rejectionReasons = feedback
+			? [{ reasoning: feedback, issuesFound: [] as string[] }]
+			: undefined;
+
+		await db
+			.update(bounties)
+			.set({
+				status: "queued",
+				assignedNodeId: null,
+				retryCount: bounty.retryCount + 1,
+				submissionCount: 0,
+				...(rejectionReasons && { lastRejectionReasons: rejectionReasons }),
+				updatedAt: new Date().toISOString(),
+			})
+			.where(eq(bounties.id, bountyId));
+
+		return c.json({
+			status: "requeued",
+			bountyId,
+			retryCount: bounty.retryCount + 1,
+		});
+	});
+
 	// Real-time feed (WebSocket upgrade — plain HTTP gets 426)
 	app.get("/api/v1/feed", feedRouteHandler);
 	app.get("/api/v1/nodes/ws", nodeWsRouteHandler);
