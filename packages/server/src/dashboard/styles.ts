@@ -129,6 +129,19 @@ footer a:hover { color: var(--accent); }
 	margin-top: 0.5rem;
 	font-style: italic;
 }
+.hero-badge {
+	display: inline-block;
+	background: rgba(210,153,34,0.15);
+	color: var(--orange);
+	border: 1px solid rgba(210,153,34,0.3);
+	padding: 0.25rem 0.75rem;
+	border-radius: 12px;
+	font-size: 0.72rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	margin-bottom: 1rem;
+}
 .hero-desc {
 	font-size: 0.85rem;
 	color: var(--text-faint);

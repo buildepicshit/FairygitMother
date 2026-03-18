@@ -259,6 +259,19 @@ export class GitHubClient {
 		return { state: data.state as "open" | "closed", merged: data.merged };
 	}
 
+	async closePullRequest(owner: string, repo: string, pullNumber: number): Promise<void> {
+		await this.octokit.rest.pulls.update({ owner, repo, pull_number: pullNumber, state: "closed" });
+	}
+
+	async commentOnIssue(
+		owner: string,
+		repo: string,
+		issueNumber: number,
+		body: string,
+	): Promise<void> {
+		await this.octokit.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body });
+	}
+
 	async checkFairygitMotherConfig(owner: string, repo: string): Promise<RepoConfig | null> {
 		try {
 			const { data } = await this.octokit.rest.repos.getContent({

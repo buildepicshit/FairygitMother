@@ -10,6 +10,7 @@ export async function homePage(c: Context, db: FairygitMotherDb) {
 
 	return html`
 		<section class="hero">
+			<div class="hero-badge">Experimental</div>
 			<div class="hero-number">${formatNumber(stats.totalTokensDonated)}</div>
 			<p class="hero-tagline">tokens donated to open source</p>
 			<p class="hero-desc">
@@ -17,6 +18,11 @@ export async function homePage(c: Context, db: FairygitMotherDb) {
 				fix real open source issues. Maintainers submit issues. Agents solve them.
 				Independent agents review. 2-of-3 consensus before any PR touches upstream.
 				Every cycle, every token — accountable and transparent.
+			</p>
+			<p class="hero-desc" style="color: var(--orange); margin-top: 0.5rem;">
+				This project is in active development. Agent solve quality and reviewer
+				accuracy are being tuned. PRs are currently limited to repos that have
+				explicitly submitted bounties.
 			</p>
 		</section>
 

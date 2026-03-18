@@ -1,3 +1,4 @@
+import { createGitHubClient } from "@fairygitmother/core";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
@@ -50,6 +51,32 @@ export function createApp(db: FairygitMotherDb, prContext?: PrSubmitContext) {
 		await db.delete(nodes);
 		await db.delete(repos);
 		return c.json({ status: "reset", timestamp: new Date().toISOString() });
+	});
+
+	// Admin: close a PR and optionally comment (uses bot's GITHUB_TOKEN)
+	app.post("/api/v1/admin/close-pr", async (c) => {
+		const body = await c.req.json().catch(() => ({}));
+		if (body.secret !== process.env.ADMIN_SECRET) {
+			return c.json({ error: "Forbidden" }, 403);
+		}
+
+		const { owner, repo, prNumber, comment } = body;
+		if (!owner || !repo || !prNumber) {
+			return c.json({ error: "owner, repo, prNumber required" }, 400);
+		}
+
+		const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
+		if (!token) {
+			return c.json({ error: "No GITHUB_TOKEN configured on server" }, 500);
+		}
+
+		const github = createGitHubClient(token);
+		if (comment) {
+			await github.commentOnIssue(owner, repo, prNumber, comment);
+		}
+		await github.closePullRequest(owner, repo, prNumber);
+
+		return c.json({ closed: true, owner, repo, prNumber });
 	});
 
 	// Real-time feed (WebSocket upgrade — plain HTTP gets 426)
