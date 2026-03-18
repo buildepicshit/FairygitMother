@@ -14,6 +14,7 @@ const PUBLIC_PATHS = new Set([
 	"/api/v1/bounties",
 	"/api/v1/bounties/claim",
 	"/api/v1/admin/reset",
+	"/api/v1/admin/close-pr",
 ]);
 
 function isPublicPath(pathname: string): boolean {
