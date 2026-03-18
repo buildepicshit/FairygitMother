@@ -39,6 +39,7 @@ export function layout(title: string, content: unknown, activeRoute = "") {
 	<main>${content}</main>
 	<footer>
 		<span>FairygitMother — No token goes unused.</span>
+		<span>&copy; 2026 BES Studios LLC</span>
 		<a href="https://github.com/buildepicshit/FairygitMother" target="_blank">GitHub</a>
 	</footer>
 </body>
