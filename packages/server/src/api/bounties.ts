@@ -74,7 +74,8 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 			complexityEstimate,
 		} = parsed.data;
 
-		// Check for duplicate
+		// Check for duplicate — allow resubmission if the existing bounty is terminal
+		const TERMINAL_STATUSES = ["pr_submitted", "pr_merged", "pr_closed", "rejected"];
 		const existing = (
 			await db
 				.select()
@@ -88,7 +89,7 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 				)
 		)[0];
 
-		if (existing) {
+		if (existing && !TERMINAL_STATUSES.includes(existing.status)) {
 			return c.json({ error: "Bounty already exists", bountyId: existing.id }, 409);
 		}
 
