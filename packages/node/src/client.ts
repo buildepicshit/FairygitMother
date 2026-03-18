@@ -51,8 +51,8 @@ export class FairygitMotherClient {
 		return this.fetch("/api/v1/bounties/claim", "POST", { nodeId: this.nodeId });
 	}
 
-	async submitFix(bountyId: string, fix: SubmitFixRequest): Promise<SubmitFixResponse> {
-		return this.fetch(`/api/v1/bounties/${bountyId}/submit`, "POST", fix);
+		if (!this.apiKey) throw new Error("Not registered");
+		return this.fetch("/api/v1/bounties/claim", "POST", { apiKey: this.apiKey });
 	}
 
 	async submitVote(submissionId: string, vote: SubmitVoteRequest): Promise<SubmitVoteResponse> {
