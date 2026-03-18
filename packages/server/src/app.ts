@@ -8,7 +8,7 @@ import { createReviewRoutes } from "./api/reviews.js";
 import { createStatsRoutes } from "./api/stats.js";
 import { feedRouteHandler } from "./api/websocket.js";
 import type { PrSubmitContext } from "./consensus/aggregator.js";
-import { createDashboardRoutes } from "./dashboard/views.js";
+import { createDashboardRoutes } from "./dashboard/index.js";
 import type { FairygitMotherDb } from "./db/client.js";
 import {
 	auditLog,
