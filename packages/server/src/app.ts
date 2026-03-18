@@ -154,9 +154,7 @@ export function createApp(db: FairygitMotherDb, prContext?: PrSubmitContext) {
 			return c.json({ error: "bountyId required" }, 400);
 		}
 
-		const bounty = (
-			await db.select().from(bounties).where(eq(bounties.id, bountyId))
-		)[0];
+		const bounty = (await db.select().from(bounties).where(eq(bounties.id, bountyId)))[0];
 		if (!bounty) {
 			return c.json({ error: "Bounty not found" }, 404);
 		}
