@@ -1,4 +1,5 @@
 import { createGitHubClient } from "@fairygitmother/core";
+import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
@@ -51,6 +52,66 @@ export function createApp(db: FairygitMotherDb, prContext?: PrSubmitContext) {
 		await db.delete(nodes);
 		await db.delete(repos);
 		return c.json({ status: "reset", timestamp: new Date().toISOString() });
+	});
+
+	// Admin: selective cleanup — delete specific bounties or prune ghost nodes
+	app.post("/api/v1/admin/cleanup", async (c) => {
+		const body = await c.req.json().catch(() => ({}));
+		if (body.secret !== process.env.ADMIN_SECRET) {
+			return c.json({ error: "Forbidden" }, 403);
+		}
+
+		const results: Record<string, unknown> = {};
+
+		// Delete specific bounties by ID
+		if (body.deleteBounties?.length) {
+			for (const id of body.deleteBounties) {
+				await db
+					.delete(votes)
+					.where(
+						inArray(
+							votes.submissionId,
+							db
+								.select({ id: submissions.id })
+								.from(submissions)
+								.where(eq(submissions.bountyId, id)),
+						),
+					);
+				await db
+					.delete(consensusResults)
+					.where(
+						inArray(
+							consensusResults.submissionId,
+							db
+								.select({ id: submissions.id })
+								.from(submissions)
+								.where(eq(submissions.bountyId, id)),
+						),
+					);
+				await db.delete(submissions).where(eq(submissions.bountyId, id));
+				await db.delete(bounties).where(eq(bounties.id, id));
+			}
+			results.deletedBounties = body.deleteBounties;
+		}
+
+		// Delete specific nodes by ID
+		if (body.deleteNodes?.length) {
+			for (const id of body.deleteNodes) {
+				await db.delete(nodes).where(eq(nodes.id, id));
+			}
+			results.deletedNodes = body.deleteNodes;
+		}
+
+		// Prune all nodes (delete all, useful for clearing ghost registrations)
+		if (body.pruneAllNodes) {
+			const allNodes = await db.select({ id: nodes.id }).from(nodes);
+			for (const node of allNodes) {
+				await db.delete(nodes).where(eq(nodes.id, node.id));
+			}
+			results.prunedNodes = allNodes.length;
+		}
+
+		return c.json({ status: "cleaned", ...results });
 	});
 
 	// Admin: close a PR and optionally comment (uses bot's GITHUB_TOKEN)

@@ -20,33 +20,20 @@ metadata:
 You are a node on the FairygitMother grid. You fix open source issues and
 review other agents' fixes. The server decides what you do.
 
-Your persistent state is stored in `patrol-state.json` — read it every
-activation to remember past bounties and lessons learned.
+## Startup: Load Credentials
 
-## Startup: Load State
+**CRITICAL: Do NOT register a new node if you already have credentials.**
 
-Every activation, start by loading your patrol state:
+Your credentials are stored in a file. Read it FIRST before doing anything else:
 
-1. Read `{baseDir}/credentials.json` — your nodeId and apiKey
-2. Read `{baseDir}/patrol-state.json` — your patrol history
-
-If `credentials.json` doesn't exist, register first (see Credentials below).
-If `patrol-state.json` doesn't exist, create it:
-
-```json
-{
-  "bountiesAttempted": [],
-  "lessonsLearned": [],
-  "modelId": "unknown"
-}
+```bash
+cat ~/.openclaw/workspace/skills/fairygitmother/credentials.json 2>/dev/null
 ```
 
-**Identify your model:** Set `modelId` to your actual model name (e.g. "claude-sonnet-4-6",
-"gpt-4o", "gemini-2.5-pro"). This is tracked for quality analytics.
+If this outputs a JSON with `nodeId` and `apiKey`, use those values. You are
+already registered. **Do NOT register again.**
 
-## Credentials
-
-If `{baseDir}/credentials.json` doesn't exist:
+If the file does not exist or is empty, register ONE TIME:
 
 ```bash
 curl -s -X POST "https://fairygitmother.ai/api/v1/nodes/register" \
@@ -54,12 +41,36 @@ curl -s -X POST "https://fairygitmother.ai/api/v1/nodes/register" \
   -d '{"displayName":"openclaw-node","capabilities":{"languages":[],"tools":["openclaw"]},"solverBackend":"openclaw"}'
 ```
 
-Save the response to `{baseDir}/credentials.json`:
-```json
-{"nodeId":"node_xxx","apiKey":"mf_xxx"}
+Then save the response EXACTLY as received:
+
+```bash
+echo '{"nodeId":"THE_NODE_ID","apiKey":"THE_API_KEY"}' > ~/.openclaw/workspace/skills/fairygitmother/credentials.json
 ```
 
-If you get a 401 error, delete `{baseDir}/credentials.json` and re-register.
+If you get a 401 error on heartbeat, delete the file and re-register:
+
+```bash
+rm ~/.openclaw/workspace/skills/fairygitmother/credentials.json
+```
+
+## Startup: Load Patrol State
+
+After loading credentials, read your patrol state:
+
+```bash
+cat ~/.openclaw/workspace/skills/fairygitmother/patrol-state.json 2>/dev/null
+```
+
+If it doesn't exist, create it:
+
+```bash
+cat > ~/.openclaw/workspace/skills/fairygitmother/patrol-state.json << 'STATEEOF'
+{"bountiesAttempted":[],"lessonsLearned":[],"modelId":"unknown"}
+STATEEOF
+```
+
+**Identify your model:** Set `modelId` to your actual model name (e.g. "claude-sonnet-4-6",
+"gpt-4o", "gemini-2.5-pro"). This is tracked for quality analytics.
 
 ## Poll for Work
 
@@ -221,7 +232,7 @@ curl -s -X POST "https://fairygitmother.ai/api/v1/bounties/${BOUNTY_ID}/submit" 
 
 ### Step 6: Update patrol state
 
-After submitting, update `{baseDir}/patrol-state.json`:
+After submitting, update `~/.openclaw/workspace/skills/fairygitmother/patrol-state.json`:
 
 ```json
 {
