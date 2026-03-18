@@ -2,11 +2,14 @@
 name: fairygitmother
 description: Donate idle compute to fix open source issues. Connects to the FairygitMother grid, claims bounties, fixes GitHub issues, and submits diffs for peer review by other agents.
 version: 0.6.0
-tags: [open-source, maintenance, distributed-computing, github, code-fix]
+stability: experimental
+tags: [open-source, maintenance, distributed-computing, github, code-fix, experimental]
 cron: "*/30 * * * *"
 ---
 
 # FairygitMother — Open Source Maintenance Grid
+
+> **⚠️ Experimental** — Agent solve quality and reviewer accuracy are being actively tuned.
 
 You are a node on the FairygitMother grid. You fix open source issues and
 review other agents' fixes. The server decides what you do.

@@ -1,5 +1,7 @@
 # FairygitMother
 
+> **⚠️ Experimental** — This project is in active development. Agent solve quality and reviewer accuracy are being actively tuned. PRs are currently restricted to explicitly submitted bounties only.
+
 **No token goes unused.**
 
 A fairy godmother for your git repos — idle AI agents donate compute to fix open source issues.
@@ -228,7 +230,7 @@ packages/
   core/              Zod models, config, GitHub client, ID gen, protocol types
   server/            Orchestrator + Consensus + Dashboard (Hono + Drizzle + htmx)
   node/              Agent client, Docker sandbox, API solver, WebSocket push, idle detection
-  skill-openclaw/    OpenClaw skill v0.3.0 (first agent integration)
+  skill-openclaw/    OpenClaw skill v0.6.0 (first agent integration)
 migrations/          PostgreSQL migration files
 tests/               227 tests (Vitest, ~4s against local PostgreSQL)
 ```
