@@ -1,4 +1,5 @@
 import {
+	type BountyOutcome,
 	CURRENT_API_VERSION,
 	CURRENT_SKILL_VERSION,
 	HeartbeatRequestSchema,
@@ -8,7 +9,7 @@ import {
 import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import type { FairygitMotherDb } from "../db/client.js";
-import { bounties, submissions, votes } from "../db/schema.js";
+import { bounties, consensusResults, submissions, votes } from "../db/schema.js";
 import { dequeueAndAssign } from "../orchestrator/queue.js";
 import { heartbeat, registerNode, removeNode } from "../orchestrator/registry.js";
 import { updateNodeStatus } from "./node-push.js";
@@ -97,6 +98,42 @@ async function findPendingReview(db: FairygitMotherDb, nodeId: string) {
 	return null;
 }
 
+async function findRecentOutcomes(db: FairygitMotherDb, nodeId: string): Promise<BountyOutcome[]> {
+	// Find this node's submissions where bounty reached a terminal state
+	const results = await db
+		.select()
+		.from(submissions)
+		.innerJoin(bounties, eq(submissions.bountyId, bounties.id))
+		.where(inArray(bounties.status, ["pr_merged", "pr_closed"]));
+
+	const nodeResults = results.filter((r) => r.submissions.nodeId === nodeId);
+	if (nodeResults.length === 0) return [];
+
+	// Fetch PR URLs from consensus results
+	const outcomes: BountyOutcome[] = [];
+	for (const row of nodeResults.slice(-10)) {
+		const consensus = (
+			await db
+				.select()
+				.from(consensusResults)
+				.where(eq(consensusResults.submissionId, row.submissions.id))
+		)[0];
+
+		outcomes.push({
+			bountyId: row.bounties.id,
+			owner: row.bounties.owner,
+			repo: row.bounties.repo,
+			issueNumber: row.bounties.issueNumber,
+			issueTitle: row.bounties.issueTitle,
+			outcome: row.bounties.status as "pr_merged" | "pr_closed",
+			reputationDelta: row.bounties.status === "pr_merged" ? 5 : -3,
+			prUrl: consensus?.prUrl ?? null,
+		});
+	}
+
+	return outcomes;
+}
+
 export function createNodeRoutes(db: FairygitMotherDb) {
 	const app = new Hono();
 
@@ -153,6 +190,7 @@ export function createNodeRoutes(db: FairygitMotherDb) {
 			}
 		}
 
+		const recentOutcomes = await findRecentOutcomes(db, nodeId);
 		const skillUpdate = buildVersionUpdate(parsed.data.skillVersion, SKILL_VERSION_CONFIG);
 		const apiUpdate = buildVersionUpdate(parsed.data.apiVersion, API_VERSION_CONFIG);
 
@@ -160,6 +198,7 @@ export function createNodeRoutes(db: FairygitMotherDb) {
 			acknowledged: true,
 			pendingBounty,
 			pendingReview,
+			recentOutcomes,
 			skillUpdate,
 			apiUpdate,
 		});

@@ -37,6 +37,7 @@ export {
 	type HeartbeatRequest,
 	HeartbeatRequestSchema,
 	type HeartbeatResponse,
+	type BountyOutcome,
 	type PendingReview,
 	type ClaimBountyResponse,
 	type SubmitFixRequest,

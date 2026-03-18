@@ -17,7 +17,7 @@ export interface RegisterNodeResponse {
 
 // ── Versioning ────────────────────────────────────────────────
 
-export const CURRENT_SKILL_VERSION = "0.5.1";
+export const CURRENT_SKILL_VERSION = "0.6.0";
 export const CURRENT_API_VERSION = "1.0.0";
 
 export interface VersionUpdateInfo {
@@ -43,10 +43,22 @@ export const HeartbeatRequestSchema = z.object({
 });
 export type HeartbeatRequest = z.infer<typeof HeartbeatRequestSchema>;
 
+export interface BountyOutcome {
+	bountyId: string;
+	owner: string;
+	repo: string;
+	issueNumber: number;
+	issueTitle: string;
+	outcome: "pr_merged" | "pr_closed";
+	reputationDelta: number;
+	prUrl: string | null;
+}
+
 export interface HeartbeatResponse {
 	acknowledged: boolean;
 	pendingBounty: z.infer<typeof BountySchema> | null;
 	pendingReview: PendingReview | null;
+	recentOutcomes: BountyOutcome[];
 	skillUpdate: VersionUpdateInfo | null;
 	apiUpdate: VersionUpdateInfo | null;
 }
