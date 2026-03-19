@@ -246,8 +246,38 @@ export class GitHubClient {
 		await this.octokit.rest.git.createRef({ owner, repo, ref, sha });
 	}
 
+	/**
+	 * Force-update an existing ref to a new SHA (equivalent to a force-push).
+	 * Use this to recover when createRefOnRepo throws 422 because the branch already exists.
+	 */
+	async updateRefOnRepo(owner: string, repo: string, ref: string, sha: string): Promise<void> {
+		// ref must be the short form, e.g. "heads/my-branch" (no "refs/" prefix)
+		const shortRef = ref.startsWith("refs/") ? ref.slice("refs/".length) : ref;
+		await this.octokit.rest.git.updateRef({ owner, repo, ref: shortRef, sha, force: true });
+	}
+
 	async deleteRef(owner: string, repo: string, ref: string): Promise<void> {
 		await this.octokit.rest.git.deleteRef({ owner, repo, ref });
+	}
+
+	/**
+	 * Find an open pull request whose head matches a given `owner:branch` string.
+	 * Returns the first match or null if none exists.
+	 */
+	async findOpenPullRequest(
+		owner: string,
+		repo: string,
+		head: string,
+	): Promise<{ number: number; html_url: string } | null> {
+		const { data } = await this.octokit.rest.pulls.list({
+			owner,
+			repo,
+			state: "open",
+			head,
+			per_page: 1,
+		});
+		if (data.length === 0) return null;
+		return { number: data[0].number, html_url: data[0].html_url };
 	}
 
 	async getPullRequestState(
