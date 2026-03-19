@@ -5,6 +5,7 @@ interface ScheduledTask {
 	task: Task;
 	intervalMs: number;
 	timer: ReturnType<typeof setInterval> | null;
+	isRunning: boolean;
 }
 
 const tasks: Map<string, ScheduledTask> = new Map();
@@ -13,12 +14,18 @@ export function scheduleTask(name: string, task: Task, intervalMs: number) {
 	// Clear existing task with same name
 	stopTask(name);
 
-	const scheduled: ScheduledTask = { name, task, intervalMs, timer: null };
+	const scheduled: ScheduledTask = { name, task, intervalMs, timer: null, isRunning: false };
 	scheduled.timer = setInterval(async () => {
+		if (scheduled.isRunning) {
+			return;
+		}
+		scheduled.isRunning = true;
 		try {
 			await task();
 		} catch (err) {
 			console.error(`[scheduler] Task "${name}" failed:`, err);
+		} finally {
+			scheduled.isRunning = false;
 		}
 	}, intervalMs);
 
