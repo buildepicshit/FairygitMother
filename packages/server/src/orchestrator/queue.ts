@@ -1,6 +1,6 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import type { FairygitMotherDb } from "../db/client.js";
-import { bounties, nodes, repos } from "../db/schema.js";
+import { bounties, nodes, repos, submissions } from "../db/schema.js";
 
 export interface QueuedBounty {
 	id: string;
@@ -37,6 +37,14 @@ export async function dequeueForNode(
 
 	// Build WHERE conditions — push language filtering to DB
 	const conditions = [eq(bounties.status, "queued")];
+
+	// Exclude bounties this node has already attempted (prevent reassignment loops)
+	const attemptedBountyIds = db
+		.select({ bountyId: submissions.bountyId })
+		.from(submissions)
+		.where(eq(submissions.nodeId, nodeId));
+	conditions.push(notInArray(bounties.id, attemptedBountyIds));
+
 	if (nodeCapabilities.languages.length > 0) {
 		// Match bounties with no language OR bounties matching node's languages
 		conditions.push(
