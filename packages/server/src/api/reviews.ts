@@ -8,7 +8,7 @@ import {
 	recordConsensus,
 } from "../consensus/aggregator.js";
 import type { FairygitMotherDb } from "../db/client.js";
-import { bounties, nodes, submissions, votes } from "../db/schema.js";
+import { bounties, consensusResults, nodes, submissions, votes } from "../db/schema.js";
 
 export function createReviewRoutes(db: FairygitMotherDb, prContext?: PrSubmitContext) {
 	const app = new Hono();
@@ -47,6 +47,17 @@ export function createReviewRoutes(db: FairygitMotherDb, prContext?: PrSubmitCon
 		)[0];
 		if (existingVote) {
 			return c.json({ error: "Already voted on this submission" }, 409);
+		}
+
+		// Block votes on already-decided submissions
+		const existingConsensus = (
+			await db
+				.select({ id: consensusResults.id })
+				.from(consensusResults)
+				.where(eq(consensusResults.submissionId, submissionId))
+		)[0];
+		if (existingConsensus) {
+			return c.json({ error: "Consensus already reached for this submission" }, 409);
 		}
 
 		// Transition bounty to in_review on first vote
