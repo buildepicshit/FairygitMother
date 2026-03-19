@@ -140,9 +140,19 @@ export async function dequeueAndAssign(
 	return bounty;
 }
 
+const MAX_BOUNTY_RETRIES = 5;
+
 export async function requeue(db: FairygitMotherDb, bountyId: string) {
 	const bounty = (await db.select().from(bounties).where(eq(bounties.id, bountyId)))[0];
 	if (!bounty) return;
+
+	if (bounty.retryCount >= MAX_BOUNTY_RETRIES) {
+		await db
+			.update(bounties)
+			.set({ status: "abandoned", updatedAt: new Date().toISOString() })
+			.where(eq(bounties.id, bountyId));
+		return;
+	}
 
 	await db
 		.update(bounties)
