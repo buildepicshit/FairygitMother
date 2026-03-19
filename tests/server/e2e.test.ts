@@ -718,4 +718,78 @@ describe("E2E: FairygitMother bounty lifecycle", () => {
 			expect(res.status).toBe(409);
 		});
 	});
+
+	// ── Regression: totalTokensDonated counter (issue #15) ──────────────
+	describe("totalTokensDonated counter tracks submission tokens", () => {
+		it("increments node totalTokensDonated when tokensUsed is provided", async () => {
+			const solver = await registerNode(app, "token-counter-solver");
+			await liftProbation(db, solver.nodeId);
+
+			// Check baseline
+			const nodeBefore = (
+				await db.select().from(schema.nodes).where(eq(schema.nodes.id, solver.nodeId))
+			)[0];
+			expect(nodeBefore?.totalTokensDonated).toBe(0);
+
+			// Submit a bounty, claim it, then submit fix with tokensUsed
+			const { bountyId } = await submitBounty(app, { issueNumber: 200 });
+			await claimBounty(app, solver.apiKey);
+
+			const fixRes = await app.request(`/api/v1/bounties/${bountyId}/submit`, {
+				method: "POST",
+				headers: authHeaders(solver.apiKey),
+				body: JSON.stringify({
+					diff: "--- a/x\n+++ b/x\n@@ -1 +1 @@\n-old\n+new",
+					explanation: "fixed",
+					filesChanged: ["x"],
+					testsPassed: true,
+					tokensUsed: 2500,
+					solverBackend: "test",
+					solveDurationMs: 1000,
+				}),
+			});
+			expect(fixRes.status).toBe(201);
+
+			// Node's token counter must have increased
+			const nodeAfter = (
+				await db.select().from(schema.nodes).where(eq(schema.nodes.id, solver.nodeId))
+			)[0];
+			expect(nodeAfter?.totalTokensDonated).toBe(2500);
+
+			// /api/v1/stats must also reflect the new total
+			const statsRes = await app.request("/api/v1/stats");
+			const stats = (await statsRes.json()) as { totalTokensDonated: number };
+			expect(stats.totalTokensDonated).toBeGreaterThanOrEqual(2500);
+		});
+
+		it("does not increment when tokensUsed is null (submission from node without token tracking)", async () => {
+			const solver = await registerNode(app, "null-token-solver");
+			await liftProbation(db, solver.nodeId);
+
+			const { bountyId } = await submitBounty(app, { issueNumber: 201 });
+			await claimBounty(app, solver.apiKey);
+
+			// Submit fix without tokensUsed (null)
+			const fixRes = await app.request(`/api/v1/bounties/${bountyId}/submit`, {
+				method: "POST",
+				headers: authHeaders(solver.apiKey),
+				body: JSON.stringify({
+					diff: "--- a/y\n+++ b/y\n@@ -1 +1 @@\n-old\n+new",
+					explanation: "fixed",
+					filesChanged: ["y"],
+					testsPassed: true,
+					tokensUsed: null,
+					solverBackend: "test",
+					solveDurationMs: 500,
+				}),
+			});
+			expect(fixRes.status).toBe(201);
+
+			// Node token counter should remain 0 (not incremented from null)
+			const nodeAfter = (
+				await db.select().from(schema.nodes).where(eq(schema.nodes.id, solver.nodeId))
+			)[0];
+			expect(nodeAfter?.totalTokensDonated).toBe(0);
+		});
+	});
 });

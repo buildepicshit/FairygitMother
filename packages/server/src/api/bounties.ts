@@ -273,8 +273,9 @@ export function createBountyRoutes(db: FairygitMotherDb) {
 			})
 			.where(eq(bounties.id, bountyId));
 
-		// Increment solver's token donation count
-		if (parsed.data.tokensUsed && bounty.assignedNodeId) {
+		// Increment solver's token donation count.
+		// Use `!= null` (not truthiness) so that tokensUsed: 0 is also recorded.
+		if (parsed.data.tokensUsed != null && bounty.assignedNodeId) {
 			await db
 				.update(nodes)
 				.set({
