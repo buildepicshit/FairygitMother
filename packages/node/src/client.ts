@@ -50,7 +50,7 @@ export class FairygitMotherClient {
 
 	async claimBounty(): Promise<ClaimBountyResponse> {
 		if (!this.nodeId) throw new Error("Not registered");
-		return this.fetch("/api/v1/bounties/claim", "POST", { nodeId: this.nodeId });
+		return this.fetch("/api/v1/bounties/claim", "POST");
 	}
 
 	async submitFix(bountyId: string, fix: SubmitFixRequest): Promise<SubmitFixResponse> {
