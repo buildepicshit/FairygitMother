@@ -30,7 +30,7 @@ const db = getDb(databaseUrl);
 console.log("[fairygitmother] Using PostgreSQL");
 
 // Load persisted stats
-const statsPath = resolve(dirname(config.dbPath), "persisted-stats.json");
+const statsPath = resolve(config.dataDir, "persisted-stats.json");
 let persistedStats = loadPersistedStats(statsPath);
 setStatsBaseline(persistedStats);
 

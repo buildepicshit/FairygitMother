@@ -1,7 +1,6 @@
 FROM node:22-alpine AS base
 
 RUN corepack enable && corepack prepare pnpm@10.28.2 --activate
-RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
@@ -13,9 +12,6 @@ COPY packages/node/package.json packages/node/
 COPY packages/skill-openclaw/package.json packages/skill-openclaw/
 
 RUN pnpm install --frozen-lockfile
-
-# Rebuild native modules for Alpine
-RUN pnpm rebuild better-sqlite3
 
 # Copy source
 COPY tsconfig.base.json biome.json ./
@@ -31,9 +27,9 @@ WORKDIR /app
 
 COPY --from=base /app ./
 
-# Data directory for SQLite
+# Data directory for persisted stats
 RUN mkdir -p /data
-ENV FAIRYGITMOTHER_DB_PATH=/data/fairygitmother.db
+ENV FAIRYGITMOTHER_DATA_DIR=/data
 ENV FAIRYGITMOTHER_HOST=0.0.0.0
 ENV FAIRYGITMOTHER_PORT=3000
 

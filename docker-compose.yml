@@ -1,12 +1,32 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fairygitmother
+      POSTGRES_PASSWORD: fairygitmother
+      POSTGRES_DB: fairygitmother
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fairygitmother"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   server:
     build: .
     ports:
       - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
       - fairygitmother-data:/data
     environment:
-      - FAIRYGITMOTHER_DB_PATH=/data/fairygitmother.db
+      - DATABASE_URL=postgresql://fairygitmother:fairygitmother@postgres:5432/fairygitmother
+      - FAIRYGITMOTHER_DATA_DIR=/data
       - FAIRYGITMOTHER_HOST=0.0.0.0
       - FAIRYGITMOTHER_PORT=3000
       # Set your GitHub token for trawling opted-in repos
@@ -14,4 +34,5 @@ services:
     restart: unless-stopped
 
 volumes:
+  pgdata:
   fairygitmother-data:

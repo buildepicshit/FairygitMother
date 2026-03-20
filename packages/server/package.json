@@ -17,7 +17,6 @@
 	"dependencies": {
 		"@hono/node-server": "^1.19.11",
 		"@fairygitmother/core": "workspace:*",
-		"better-sqlite3": "^11.0.0",
 		"drizzle-orm": "^0.38.0",
 		"pg": "^8.13.0",
 		"hono": "^4.7.0",
@@ -25,7 +24,6 @@
 		"zod": "^3.24.0"
 	},
 	"devDependencies": {
-		"@types/better-sqlite3": "^7.6.0",
 		"@types/pg": "^8.11.0",
 		"drizzle-kit": "^0.30.0",
 		"tsup": "^8.3.0",
