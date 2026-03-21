@@ -16,6 +16,12 @@ export async function scanRepo(opts: TrawlerOptions, owner: string, repo: string
 	const issues = await github.fetchGoodFirstIssues(owner, repo, 20);
 	let created = 0;
 
+	// Fetch repo languages once before the per-issue loop to avoid N redundant API calls
+	const language = await github.getRepoLanguages(owner, repo).then((langs) => {
+		const entries = Object.entries(langs);
+		return entries.length > 0 ? entries[0][0] : null;
+	});
+
 	for (const issue of issues) {
 		if (!isEligible(issue)) continue;
 
@@ -33,11 +39,6 @@ export async function scanRepo(opts: TrawlerOptions, owner: string, repo: string
 		)[0];
 
 		if (existing) continue;
-
-		const language = await github.getRepoLanguages(owner, repo).then((langs) => {
-			const entries = Object.entries(langs);
-			return entries.length > 0 ? entries[0][0] : null;
-		});
 
 		const bounty = {
 			id: generateId("bty"),
