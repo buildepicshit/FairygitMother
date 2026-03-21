@@ -124,7 +124,52 @@ export async function submitPr(
 		newTreeSha,
 		[headSha],
 	);
-	await github.createRefOnRepo(forkOwner, bounty.repo, `refs/heads/${branchName}`, newCommitSha);
+	// Try to create the branch ref; if it already exists (422), recover gracefully.
+	try {
+		await github.createRefOnRepo(forkOwner, bounty.repo, `refs/heads/${branchName}`, newCommitSha);
+	} catch (err: unknown) {
+		const isAlreadyExists =
+			typeof err === "object" &&
+			err !== null &&
+			"status" in err &&
+			(err as { status: number }).status === 422;
+
+		if (!isAlreadyExists) throw err;
+
+		// Branch already exists — check whether a PR was already opened for it.
+		const existingPr = await github.findOpenPullRequest(
+			bounty.owner,
+			bounty.repo,
+			`${forkOwner}:${branchName}`,
+		);
+
+		if (existingPr) {
+			// PR already exists — record it and return early without duplicating.
+			await db
+				.update(consensusResults)
+				.set({ prUrl: existingPr.html_url })
+				.where(eq(consensusResults.id, consensus.id));
+			await db
+				.update(bounties)
+				.set({ status: "pr_submitted", updatedAt: new Date().toISOString() })
+				.where(eq(bounties.id, bounty.id));
+			emitEvent({ type: "pr_submitted", bountyId: bounty.id, prUrl: existingPr.html_url });
+			await logAudit(db, "pr_submitted", submissionId, {
+				bountyId: bounty.id,
+				prUrl: existingPr.html_url,
+				prNumber: existingPr.number,
+			});
+			return { prNumber: existingPr.number, prUrl: existingPr.html_url };
+		}
+
+		// No open PR yet — force-update the branch to the new commit and continue.
+		await github.updateRefOnRepo(
+			forkOwner,
+			bounty.repo,
+			`refs/heads/${branchName}`,
+			newCommitSha,
+		);
+	}
 
 	// 6. Create the PR
 	const body = buildPrBody(
