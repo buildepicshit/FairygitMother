@@ -13,12 +13,16 @@ import type {
 
 export type PushHandler = (message: Record<string, unknown>) => void;
 
+/** Exponential backoff delays (ms) for WebSocket reconnect: 5s → 10s → 20s → 40s → 60s cap */
+const WS_BACKOFF_DELAYS_MS = [5_000, 10_000, 20_000, 40_000, 60_000];
+
 export class FairygitMotherClient {
 	private baseUrl: string;
 	private apiKey: string | null;
 	private nodeId: string | null;
 	private ws: WebSocket | null = null;
 	private wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+	private wsReconnectAttempts = 0;
 	private pushHandlers: Set<PushHandler> = new Set();
 
 	constructor(orchestratorUrl: string, apiKey?: string, nodeId?: string) {
@@ -104,6 +108,8 @@ export class FairygitMotherClient {
 
 		this.ws.onopen = () => {
 			console.log("[fgm-client] WebSocket connected");
+			// Reset backoff counter on successful connection
+			this.wsReconnectAttempts = 0;
 		};
 
 		this.ws.onmessage = (event) => {
@@ -145,6 +151,7 @@ export class FairygitMotherClient {
 			clearTimeout(this.wsReconnectTimer);
 			this.wsReconnectTimer = null;
 		}
+		this.wsReconnectAttempts = 0;
 		if (this.ws) {
 			try {
 				this.ws.close();
@@ -157,10 +164,14 @@ export class FairygitMotherClient {
 
 	private scheduleReconnect(): void {
 		if (this.wsReconnectTimer) return;
+		const delay =
+			WS_BACKOFF_DELAYS_MS[Math.min(this.wsReconnectAttempts, WS_BACKOFF_DELAYS_MS.length - 1)];
+		this.wsReconnectAttempts++;
+		console.log(`[fgm-client] WebSocket reconnect in ${delay / 1000}s (attempt ${this.wsReconnectAttempts})`);
 		this.wsReconnectTimer = setTimeout(() => {
 			this.wsReconnectTimer = null;
 			if (this.apiKey) this.connectWebSocket();
-		}, 5000);
+		}, delay);
 	}
 
 	private async fetch(path: string, method: string, body?: unknown): Promise<any> {
