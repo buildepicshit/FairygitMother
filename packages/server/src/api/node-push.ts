@@ -21,6 +21,11 @@ interface ConnectedNode {
 
 const connectedNodes = new Map<string, ConnectedNode>();
 
+/** Ping interval (ms) — server pings each node every 30 seconds */
+const PING_INTERVAL_MS = 30_000;
+/** Pong timeout (ms) — if no pong arrives within 10 seconds, close the connection */
+const PONG_TIMEOUT_MS = 10_000;
+
 /**
  * Send a message to a specific connected node.
  * Returns true if the message was sent, false if node is not connected.
@@ -136,13 +141,45 @@ export function attachNodeWebSocketHandler(
 								capabilities,
 							});
 
-							ws.on("close", () => {
-								connectedNodes.delete(node.id);
-							});
+							// ── Ping/pong keepalive ──────────────────────────────
+						// Server pings every PING_INTERVAL_MS.  If no pong
+						// arrives within PONG_TIMEOUT_MS, the connection is
+						// considered stale and is terminated.
+						let pongTimer: ReturnType<typeof setTimeout> | null = null;
 
-							ws.on("error", () => {
-								connectedNodes.delete(node.id);
-							});
+						const pingInterval = setInterval(() => {
+							if (ws.readyState !== ws.OPEN) {
+								clearInterval(pingInterval);
+								return;
+							}
+							ws.ping();
+							pongTimer = setTimeout(() => {
+								console.log(
+									`[node-push] Node ${node.id} pong timeout — closing stale connection`,
+								);
+								ws.terminate();
+							}, PONG_TIMEOUT_MS);
+						}, PING_INTERVAL_MS);
+
+						ws.on("pong", () => {
+							if (pongTimer) {
+								clearTimeout(pongTimer);
+								pongTimer = null;
+							}
+						});
+						// ─────────────────────────────────────────────────────
+
+						ws.on("close", () => {
+							clearInterval(pingInterval);
+							if (pongTimer) clearTimeout(pongTimer);
+							connectedNodes.delete(node.id);
+						});
+
+						ws.on("error", () => {
+							clearInterval(pingInterval);
+							if (pongTimer) clearTimeout(pongTimer);
+							connectedNodes.delete(node.id);
+						});
 
 							// Handle status updates from the node
 							ws.on("message", (data) => {
