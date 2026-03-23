@@ -45,6 +45,20 @@ export function createRateLimiter(opts: Partial<RateLimiterOptions> = {}): Middl
 	const { windowMs, maxRequests } = { ...DEFAULT_OPTIONS, ...opts };
 	const windows = new Map<string, WindowEntry>();
 
+	// Cleanup expired windows periodically
+	const cleanupInterval: any = setInterval(() => {
+		const now = Date.now();
+		for (const [key, entry] of windows.entries()) {
+			if (now - entry.windowStart >= windowMs) {
+				windows.delete(key);
+			}
+		}
+	}, windowMs);
+	
+	if (cleanupInterval && typeof cleanupInterval.unref === "function") {
+		cleanupInterval.unref();
+	}
+
 	const middleware: MiddlewareHandler = async (c, next) => {
 		// Skip rate limiting for the health endpoint
 		if (c.req.method === "GET" && c.req.path === "/api/v1/health") {
