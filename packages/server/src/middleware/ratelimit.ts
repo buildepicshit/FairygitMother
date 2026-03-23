@@ -54,7 +54,7 @@ export function createRateLimiter(opts: Partial<RateLimiterOptions> = {}): Middl
 			}
 		}
 	}, windowMs);
-	
+
 	if (cleanupInterval && typeof cleanupInterval.unref === "function") {
 		cleanupInterval.unref();
 	}

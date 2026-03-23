@@ -142,44 +142,44 @@ export function attachNodeWebSocketHandler(
 							});
 
 							// ── Ping/pong keepalive ──────────────────────────────
-						// Server pings every PING_INTERVAL_MS.  If no pong
-						// arrives within PONG_TIMEOUT_MS, the connection is
-						// considered stale and is terminated.
-						let pongTimer: ReturnType<typeof setTimeout> | null = null;
+							// Server pings every PING_INTERVAL_MS.  If no pong
+							// arrives within PONG_TIMEOUT_MS, the connection is
+							// considered stale and is terminated.
+							let pongTimer: ReturnType<typeof setTimeout> | null = null;
 
-						const pingInterval = setInterval(() => {
-							if (ws.readyState !== ws.OPEN) {
+							const pingInterval = setInterval(() => {
+								if (ws.readyState !== ws.OPEN) {
+									clearInterval(pingInterval);
+									return;
+								}
+								ws.ping();
+								pongTimer = setTimeout(() => {
+									console.log(
+										`[node-push] Node ${node.id} pong timeout — closing stale connection`,
+									);
+									ws.terminate();
+								}, PONG_TIMEOUT_MS);
+							}, PING_INTERVAL_MS);
+
+							ws.on("pong", () => {
+								if (pongTimer) {
+									clearTimeout(pongTimer);
+									pongTimer = null;
+								}
+							});
+							// ─────────────────────────────────────────────────────
+
+							ws.on("close", () => {
 								clearInterval(pingInterval);
-								return;
-							}
-							ws.ping();
-							pongTimer = setTimeout(() => {
-								console.log(
-									`[node-push] Node ${node.id} pong timeout — closing stale connection`,
-								);
-								ws.terminate();
-							}, PONG_TIMEOUT_MS);
-						}, PING_INTERVAL_MS);
+								if (pongTimer) clearTimeout(pongTimer);
+								connectedNodes.delete(node.id);
+							});
 
-						ws.on("pong", () => {
-							if (pongTimer) {
-								clearTimeout(pongTimer);
-								pongTimer = null;
-							}
-						});
-						// ─────────────────────────────────────────────────────
-
-						ws.on("close", () => {
-							clearInterval(pingInterval);
-							if (pongTimer) clearTimeout(pongTimer);
-							connectedNodes.delete(node.id);
-						});
-
-						ws.on("error", () => {
-							clearInterval(pingInterval);
-							if (pongTimer) clearTimeout(pongTimer);
-							connectedNodes.delete(node.id);
-						});
+							ws.on("error", () => {
+								clearInterval(pingInterval);
+								if (pongTimer) clearTimeout(pongTimer);
+								connectedNodes.delete(node.id);
+							});
 
 							// Handle status updates from the node
 							ws.on("message", (data) => {

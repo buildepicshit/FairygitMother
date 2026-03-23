@@ -167,7 +167,9 @@ export class FairygitMotherClient {
 		const delay =
 			WS_BACKOFF_DELAYS_MS[Math.min(this.wsReconnectAttempts, WS_BACKOFF_DELAYS_MS.length - 1)];
 		this.wsReconnectAttempts++;
-		console.log(`[fgm-client] WebSocket reconnect in ${delay / 1000}s (attempt ${this.wsReconnectAttempts})`);
+		console.log(
+			`[fgm-client] WebSocket reconnect in ${delay / 1000}s (attempt ${this.wsReconnectAttempts})`,
+		);
 		this.wsReconnectTimer = setTimeout(() => {
 			this.wsReconnectTimer = null;
 			if (this.apiKey) this.connectWebSocket();

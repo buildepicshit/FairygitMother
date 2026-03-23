@@ -163,12 +163,7 @@ export async function submitPr(
 		}
 
 		// No open PR yet — force-update the branch to the new commit and continue.
-		await github.updateRefOnRepo(
-			forkOwner,
-			bounty.repo,
-			`refs/heads/${branchName}`,
-			newCommitSha,
-		);
+		await github.updateRefOnRepo(forkOwner, bounty.repo, `refs/heads/${branchName}`, newCommitSha);
 	}
 
 	// 6. Create the PR
