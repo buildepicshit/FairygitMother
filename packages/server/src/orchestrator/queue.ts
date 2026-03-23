@@ -1,6 +1,6 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, notInArray, sql } from "drizzle-orm";
 import type { FairygitMotherDb } from "../db/client.js";
-import { bounties, nodes, repos } from "../db/schema.js";
+import { bounties, nodes, repos, submissions } from "../db/schema.js";
 
 export interface QueuedBounty {
 	id: string;
@@ -37,6 +37,14 @@ export async function dequeueForNode(
 
 	// Build WHERE conditions — push language filtering to DB
 	const conditions = [eq(bounties.status, "queued")];
+
+	// Exclude bounties this node has already attempted (prevent reassignment loops)
+	const attemptedBountyIds = db
+		.select({ bountyId: submissions.bountyId })
+		.from(submissions)
+		.where(eq(submissions.nodeId, nodeId));
+	conditions.push(notInArray(bounties.id, attemptedBountyIds));
+
 	if (nodeCapabilities.languages.length > 0) {
 		// Match bounties with no language OR bounties matching node's languages
 		conditions.push(
@@ -140,9 +148,19 @@ export async function dequeueAndAssign(
 	return bounty;
 }
 
+const MAX_BOUNTY_RETRIES = 5;
+
 export async function requeue(db: FairygitMotherDb, bountyId: string) {
 	const bounty = (await db.select().from(bounties).where(eq(bounties.id, bountyId)))[0];
 	if (!bounty) return;
+
+	if (bounty.retryCount >= MAX_BOUNTY_RETRIES) {
+		await db
+			.update(bounties)
+			.set({ status: "abandoned", updatedAt: new Date().toISOString() })
+			.where(eq(bounties.id, bountyId));
+		return;
+	}
 
 	await db
 		.update(bounties)
@@ -161,38 +179,45 @@ export async function requeueStaleBounties(
 ): Promise<number> {
 	const cutoff = new Date(Date.now() - staleAfterMs).toISOString();
 	const stale = await db
-		.select()
+		.select({
+			bounty: bounties,
+			nodeStatus: nodes.status,
+			nodeLastHeartbeat: nodes.lastHeartbeat,
+		})
 		.from(bounties)
+		.leftJoin(nodes, eq(bounties.assignedNodeId, nodes.id))
 		.where(and(eq(bounties.status, "assigned"), sql`${bounties.updatedAt} < ${cutoff}`));
 
-	for (const bounty of stale) {
-		await requeue(db, bounty.id);
-	}
+	let requeued = 0;
+	for (const row of stale) {
+		// Only requeue if the assigned node is gone, offline, or hasn't heartbeated recently
+		// If the node is still alive and active, it's probably still working on the bounty
+		const nodeAlive =
+			row.nodeStatus &&
+			row.nodeStatus !== "offline" &&
+			row.nodeLastHeartbeat &&
+			new Date(row.nodeLastHeartbeat).getTime() > Date.now() - staleAfterMs;
 
-	return stale.length;
-}
+		if (nodeAlive) {
+			console.log(
+				`[requeue] Skipping bounty ${row.bounty.id} — assigned node is still alive (status: ${row.nodeStatus}, last heartbeat: ${row.nodeLastHeartbeat})`,
+			);
+			continue;
+		}
 
-export async function requeueStaleDiffs(
-	db: FairygitMotherDb,
-	staleAfterMs: number,
-): Promise<number> {
-	const cutoff = new Date(Date.now() - staleAfterMs).toISOString();
-	const stale = await db
-		.select()
-		.from(bounties)
-		.where(
-			and(
-				inArray(bounties.status, ["diff_submitted", "in_review"]),
-				sql`${bounties.updatedAt} < ${cutoff}`,
-			),
+		console.log(
+			`[requeue] Requeuing stale bounty ${row.bounty.id} — node status: ${row.nodeStatus ?? "unknown"}, last heartbeat: ${row.nodeLastHeartbeat ?? "never"}`,
 		);
-
-	for (const bounty of stale) {
-		await requeue(db, bounty.id);
+		await requeue(db, row.bounty.id);
+		requeued++;
 	}
 
-	return stale.length;
+	return requeued;
 }
+
+// NOTE: Once a bounty reaches "diff_submitted" or "in_review", it must NOT be
+// requeued automatically. Only consensus rejection (2 reviewers voting reject)
+// can send it back to "queued". This protects submitted work from being lost.
 
 /**
  * Lightweight check if a GitHub issue is still open.

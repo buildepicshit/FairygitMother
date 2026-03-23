@@ -103,6 +103,51 @@ describe("queue", () => {
 			await insertBounty(db);
 			expect(await dequeueForNode(db, node.id)).toBeNull();
 		});
+
+		it("skips bounties the node has already submitted for", async () => {
+			const node = await insertNode(db);
+			const attempted = await insertBounty(db, { issueTitle: "Already tried" });
+			await insertBounty(db, { issueTitle: "Fresh bounty" });
+
+			// Record a prior submission from this node for the first bounty
+			await db.insert(schema.submissions).values({
+				id: generateId("sub"),
+				bountyId: attempted.id,
+				nodeId: node.id,
+				diff: "--- a/file.ts\n+++ b/file.ts",
+				explanation: "Attempted fix",
+				filesChanged: ["file.ts"],
+				solverBackend: "test",
+				solveDurationMs: 1000,
+			});
+
+			const result = await dequeueForNode(db, node.id);
+			expect(result?.issueTitle).toBe("Fresh bounty");
+		});
+
+		it("allows a different node to pick up a bounty another node attempted", async () => {
+			const nodeA = await insertNode(db);
+			const nodeB = await insertNode(db);
+			const bounty = await insertBounty(db, { issueTitle: "Shared bounty" });
+
+			// Node A already attempted this bounty
+			await db.insert(schema.submissions).values({
+				id: generateId("sub"),
+				bountyId: bounty.id,
+				nodeId: nodeA.id,
+				diff: "--- a/file.ts\n+++ b/file.ts",
+				explanation: "Failed attempt",
+				filesChanged: ["file.ts"],
+				solverBackend: "test",
+				solveDurationMs: 1000,
+			});
+
+			// Node A should NOT get it again
+			expect(await dequeueForNode(db, nodeA.id)).toBeNull();
+			// Node B should still get it
+			const result = await dequeueForNode(db, nodeB.id);
+			expect(result?.issueTitle).toBe("Shared bounty");
+		});
 	});
 
 	describe("markAssigned", () => {

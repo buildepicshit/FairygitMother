@@ -24,7 +24,7 @@ export const FairygitMotherConfigSchema = z.object({
 	defaultSolverMode: SolverModeSchema.default("api"),
 	trustedRepos: z.array(TrustedRepoSchema).default([]),
 	idleThresholdMinutes: z.number().int().min(1).default(5),
-	dbPath: z.string().default("fairygitmother.db"),
+	dataDir: z.string().default("."),
 	port: z.number().int().min(1).max(65535).default(3000),
 	host: z.string().default("0.0.0.0"),
 	maxPrsPerRepoPerDay: z.number().int().min(1).default(3),
@@ -55,7 +55,7 @@ export function loadConfig(overrides: Partial<FairygitMotherConfig> = {}): Fairy
 		idleThresholdMinutes: env.FAIRYGITMOTHER_IDLE_THRESHOLD_MINUTES
 			? Number(env.FAIRYGITMOTHER_IDLE_THRESHOLD_MINUTES)
 			: undefined,
-		dbPath: env.FAIRYGITMOTHER_DB_PATH,
+		dataDir: env.FAIRYGITMOTHER_DATA_DIR,
 		port: env.FAIRYGITMOTHER_PORT ? Number(env.FAIRYGITMOTHER_PORT) : undefined,
 		host: env.FAIRYGITMOTHER_HOST,
 		forkOwner: env.FAIRYGITMOTHER_FORK_OWNER,

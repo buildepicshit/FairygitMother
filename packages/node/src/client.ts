@@ -13,12 +13,16 @@ import type {
 
 export type PushHandler = (message: Record<string, unknown>) => void;
 
+/** Exponential backoff delays (ms) for WebSocket reconnect: 5s → 10s → 20s → 40s → 60s cap */
+const WS_BACKOFF_DELAYS_MS = [5_000, 10_000, 20_000, 40_000, 60_000];
+
 export class FairygitMotherClient {
 	private baseUrl: string;
 	private apiKey: string | null;
 	private nodeId: string | null;
 	private ws: WebSocket | null = null;
 	private wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+	private wsReconnectAttempts = 0;
 	private pushHandlers: Set<PushHandler> = new Set();
 
 	constructor(orchestratorUrl: string, apiKey?: string, nodeId?: string) {
@@ -34,7 +38,7 @@ export class FairygitMotherClient {
 	async register(request: RegisterNodeRequest): Promise<RegisterNodeResponse> {
 		// Send existing apiKey so the server can reconnect instead of duplicating
 		const payload = this.apiKey ? { ...request, apiKey: this.apiKey } : request;
-		const res = await this.fetch("/api/v1/nodes/register", "POST", payload);
+		const res = await this.fetch<RegisterNodeResponse>("/api/v1/nodes/register", "POST", payload);
 		this.nodeId = res.nodeId;
 		this.apiKey = res.apiKey;
 		return res;
@@ -42,7 +46,7 @@ export class FairygitMotherClient {
 
 	async heartbeat(status: HeartbeatRequest["status"], tokensUsed = 0): Promise<HeartbeatResponse> {
 		if (!this.nodeId) throw new Error("Not registered");
-		return this.fetch(`/api/v1/nodes/${this.nodeId}/heartbeat`, "POST", {
+		return this.fetch<HeartbeatResponse>(`/api/v1/nodes/${this.nodeId}/heartbeat`, "POST", {
 			status,
 			tokensUsedSinceLastHeartbeat: tokensUsed,
 		});
@@ -50,23 +54,23 @@ export class FairygitMotherClient {
 
 	async claimBounty(): Promise<ClaimBountyResponse> {
 		if (!this.nodeId) throw new Error("Not registered");
-		return this.fetch("/api/v1/bounties/claim", "POST");
+		return this.fetch<ClaimBountyResponse>("/api/v1/bounties/claim", "POST", {});
 	}
 
 	async submitFix(bountyId: string, fix: SubmitFixRequest): Promise<SubmitFixResponse> {
-		return this.fetch(`/api/v1/bounties/${bountyId}/submit`, "POST", fix);
+		return this.fetch<SubmitFixResponse>(`/api/v1/bounties/${bountyId}/submit`, "POST", fix);
 	}
 
 	async submitVote(submissionId: string, vote: SubmitVoteRequest): Promise<SubmitVoteResponse> {
 		if (!this.nodeId) throw new Error("Not registered");
-		return this.fetch(`/api/v1/reviews/${submissionId}/vote`, "POST", {
+		return this.fetch<SubmitVoteResponse>(`/api/v1/reviews/${submissionId}/vote`, "POST", {
 			...vote,
 			reviewerNodeId: this.nodeId,
 		});
 	}
 
 	async getStats(): Promise<GridStats> {
-		return this.fetch("/api/v1/stats", "GET");
+		return this.fetch<GridStats>("/api/v1/stats", "GET");
 	}
 
 	async disconnect(): Promise<void> {
@@ -104,6 +108,8 @@ export class FairygitMotherClient {
 
 		this.ws.onopen = () => {
 			console.log("[fgm-client] WebSocket connected");
+			// Reset backoff counter on successful connection
+			this.wsReconnectAttempts = 0;
 		};
 
 		this.ws.onmessage = (event) => {
@@ -145,6 +151,7 @@ export class FairygitMotherClient {
 			clearTimeout(this.wsReconnectTimer);
 			this.wsReconnectTimer = null;
 		}
+		this.wsReconnectAttempts = 0;
 		if (this.ws) {
 			try {
 				this.ws.close();
@@ -157,13 +164,17 @@ export class FairygitMotherClient {
 
 	private scheduleReconnect(): void {
 		if (this.wsReconnectTimer) return;
+		const delay =
+			WS_BACKOFF_DELAYS_MS[Math.min(this.wsReconnectAttempts, WS_BACKOFF_DELAYS_MS.length - 1)];
+		this.wsReconnectAttempts++;
+		console.log(`[fgm-client] WebSocket reconnect in ${delay / 1000}s (attempt ${this.wsReconnectAttempts})`);
 		this.wsReconnectTimer = setTimeout(() => {
 			this.wsReconnectTimer = null;
 			if (this.apiKey) this.connectWebSocket();
-		}, 5000);
+		}, delay);
 	}
 
-	private async fetch(path: string, method: string, body?: unknown): Promise<any> {
+	private async fetch<T>(path: string, method: string, body?: unknown): Promise<T> {
 		const headers: Record<string, string> = {
 			"Content-Type": "application/json",
 		};
@@ -182,6 +193,6 @@ export class FairygitMotherClient {
 			throw new Error(`FairygitMother API error (${response.status}): ${text}`);
 		}
 
-		return response.json();
+		return response.json() as Promise<T>;
 	}
 }

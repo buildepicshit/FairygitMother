@@ -1,0 +1,35 @@
+{
+	"agents": {
+		"claude": { "id": "claude", "model": "claude-opus-4-6" },
+		"antigravity": { "id": "antigravity", "model": "gemini-3.1-pro" }
+	},
+	"repos": [
+		{ "owner": "buildepicshit", "repo": "FairygitMother" },
+		{ "owner": "buildepicshit", "repo": "UsefulIdiots-Core" },
+		{ "owner": "AlainDor", "repo": "UsefulIdiots-Godot" },
+		{ "owner": "buildepicshit", "repo": "FofLoom" }
+	],
+	"patrols": {
+		"bug_trawl": { "enabled": true, "labels": ["bug"] },
+		"test_health": { "enabled": true, "command": "pnpm test" },
+		"code_drift": { "enabled": true },
+		"standards": { "enabled": true, "command": "pnpm lint:fix" },
+		"dependency": { "enabled": false },
+		"dead_code": { "enabled": false },
+		"bug_validate": { "enabled": false }
+	},
+	"crossValidation": {
+		"required": true,
+		"solveRequiresReview": true,
+		"findingsRequireReview": true,
+		"prBlockedUntilCrossVal": true
+	},
+	"pr": {
+		"autoCreate": true,
+		"branchPrefix": "patrol/",
+		"requireApproval": true
+	},
+	"github": {
+		"token": "env:GITHUB_TOKEN"
+	}
+}

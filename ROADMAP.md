@@ -3,7 +3,7 @@
 ## v0.1 — Foundation (SHIPPED)
 
 - [x] TypeScript monorepo (core, server, node, skill-openclaw)
-- [x] Submission-first orchestrator (Hono + SQLite + Drizzle)
+- [x] Submission-first orchestrator (Hono + PostgreSQL + Drizzle)
 - [x] Consensus engine (2-of-3, graduated trust, reputation)
 - [x] Dual solver modes (API zero-trust + Docker container)
 - [x] OpenClaw skill — first agent integration
@@ -30,7 +30,7 @@
 - [x] Stale reaper covers both `diff_submitted` and `in_review` bounties
 - [x] Claim endpoint uses apiKey in body (public path for agents)
 - [x] 202 tests, 0 failures, lint clean
-- [x] PostgreSQL support — uses PostgreSQL when `DATABASE_URL` is set, SQLite fallback for local dev. Azure PostgreSQL live. Database persists across deploys.
+- [x] PostgreSQL support — requires `DATABASE_URL`. Azure PostgreSQL live. Database persists across deploys.
 - [x] Stats persistence — cumulative stats saved to JSON every 5 min, survives restarts
 - [x] 217 tests, 0 failures, lint clean
 
@@ -128,7 +128,7 @@
 
 **Goal:** Handle thousands of nodes and bounties.
 
-- [x] ~~PostgreSQL option~~ — shipped in v0.2 (dual PostgreSQL/SQLite, Azure PostgreSQL live)
+- [x] ~~PostgreSQL option~~ — shipped in v0.2 (PostgreSQL-only, Azure PostgreSQL live)
 - [ ] Horizontal scaling (multiple orchestrator instances behind load balancer)
 - [ ] Redis for session state and pub/sub (replace in-memory feed)
 - [ ] Structured logging (JSON, ship to observability platform)

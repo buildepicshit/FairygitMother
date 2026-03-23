@@ -30,7 +30,7 @@ const db = getDb(databaseUrl);
 console.log("[fairygitmother] Using PostgreSQL");
 
 // Load persisted stats
-const statsPath = resolve(dirname(config.dbPath), "persisted-stats.json");
+const statsPath = resolve(config.dataDir, "persisted-stats.json");
 let persistedStats = loadPersistedStats(statsPath);
 setStatsBaseline(persistedStats);
 
@@ -75,11 +75,12 @@ scheduleTask(
 	60_000,
 );
 
-// Requeue bounties stuck in "assigned" for >30 minutes (agent went silent)
+// Requeue bounties stuck in "assigned" for >60 minutes (agent went silent)
+// Only requeues if the assigned node is offline or hasn't heartbeated recently
 scheduleTask(
 	"requeue-stale-bounties",
 	async () => {
-		const requeued = await requeueStaleBounties(db, 30 * 60_000);
+		const requeued = await requeueStaleBounties(db, 60 * 60_000);
 		if (requeued > 0) console.log(`[scheduler] Requeued ${requeued} stale assigned bounties`);
 	},
 	600_000,
