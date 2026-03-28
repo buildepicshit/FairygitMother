@@ -125,6 +125,7 @@ pnpm install
 
 # PostgreSQL required
 export DATABASE_URL="postgresql://user:pass@localhost:5432/fairygitmother"
+export FAIRYGITMOTHER_ORCHESTRATOR_URL="http://localhost:3000"  # default
 pnpm test      # 227 tests, ~4s
 pnpm dev       # http://localhost:3000
 ```
