@@ -6,21 +6,39 @@ import { bounties, repos } from "../db/schema.js";
 
 const QUALIFYING_LABELS = ["good first issue", "help wanted", "fairygitmother"];
 
+/** Per-scan-run cache for repo languages. Create once, pass to all scanRepo calls in a trawl cycle. */
+export type LanguageCache = Map<string, Record<string, number>>;
+
+/** Create a fresh per-scan-run language cache. */
+export function createLanguageCache(): LanguageCache {
+	return new Map();
+}
+
 export interface TrawlerOptions {
 	db: FairygitMotherDb;
 	github: GitHubClient;
+	/** Optional per-scan-run cache to avoid redundant getRepoLanguages API calls across repos. */
+	languageCache?: LanguageCache;
 }
 
 export async function scanRepo(opts: TrawlerOptions, owner: string, repo: string): Promise<number> {
-	const { db, github } = opts;
+	const { db, github, languageCache } = opts;
 	const issues = await github.fetchGoodFirstIssues(owner, repo, 20);
 	let created = 0;
 
-	// Fetch repo languages once before the per-issue loop to avoid N redundant API calls
-	const language = await github.getRepoLanguages(owner, repo).then((langs) => {
-		const entries = Object.entries(langs);
-		return entries.length > 0 ? entries[0][0] : null;
-	});
+	// Resolve repo languages — use cache if available, otherwise fetch from GitHub API
+	const cacheKey = `${owner}/${repo}`;
+	let langs: Record<string, number>;
+
+	if (languageCache?.has(cacheKey)) {
+		langs = languageCache.get(cacheKey)!;
+	} else {
+		langs = await github.getRepoLanguages(owner, repo);
+		languageCache?.set(cacheKey, langs);
+	}
+
+	const entries = Object.entries(langs);
+	const language = entries.length > 0 ? entries[0][0] : null;
 
 	for (const issue of issues) {
 		if (!isEligible(issue)) continue;
